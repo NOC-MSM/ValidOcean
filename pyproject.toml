@@ -1,0 +1,44 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools>=42",
+  "setuptools-scm>=7",
+]
+
+[tool.setuptools]
+packages = ["ValidOcean"]
+
+[project]
+name = "ValidOcean"
+description = "Leveraging the cloud to accelerate ocean model validation."
+requires-python = ">=3.10"
+keywords = ["validation", "oceanography", "modelling", "analysis", "NEMO"]
+authors = [{email = "oliver.tooth@noc.ac.uk"},{name = "Ollie Tooth"}]
+maintainers = [{name = "Ollie Tooth", email = "oliver.tooth@noc.ac.uk"}]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Intended Audience :: Science/Research"
+]
+dependencies = [
+  "dask[complete]>=2024.10.0",
+  "flox>=0.9.12",
+  "gsw>=3.6.19",
+  "matplotlib>=3.9.3",
+  "scipy>=1.14.1",
+  "scikit-learn>=1.5.2",
+  "xarray[io,accel]>=2024.10.0",
+  "xoak>=0.1.1",
+  "numba>=0.60.0",
+  "numpy>=1.26.4",
+  "zarr>=2.18.3",
+  "nsv @ git+https://github.com/oj-tooth/nordic-seas-validation.git",
+  ]
+
+dynamic = ["version"]
+
+[project.readme]
+file = "README.md"
+content-type = "text/md"
+
+[project.urls]
+repository = "https://github.com/NOC-MSM/ValidOcean"
