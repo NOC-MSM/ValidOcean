@@ -144,6 +144,30 @@ class Validator():
         Self
             Validator object including output variable, {var}_bias.
         """
+        # -- Verify Inputs -- #
+        if not isinstance(var_name, str):
+            raise TypeError("``var_name`` name must be specified as a string.")
+        if var_name not in self.data.variables:
+            raise ValueError(f"{var_name} not found in ocean model dataset.")
+        
+        if not isinstance(obs_name, str):
+            raise TypeError("``obs_name`` must be specified as a string.")
+
+        if not isinstance(freq, str):
+            raise TypeError("``freq`` must be specified as a string.")
+        if freq not in ['climatology', 'seasonal', 'monthly']:
+            raise ValueError("``freq`` must be one of ``climatology``, ``seasonal`` or ``monthly``.")
+        
+        if not isinstance(method, str):
+            raise TypeError("``method`` must be specified as a string.")
+        if method not in ['bilinear', 'nearest', 'conservative']:
+            raise ValueError("``method`` must be one of ``bilinear``, ``nearest`` or ``conservative``.")
+
+        if not isinstance(regrid, str):
+            raise TypeError("``regrid`` must be specified as a string.")
+        if regrid not in ['model', 'obs']:
+            raise ValueError("``regrid`` must be one of ``model`` or ``obs``.")
+
         # -- Load Observational Data -- #
         obs_loader = self.DataLoader(obs_name, freq)
         if hasattr(obs_loader, f"load_{obs_name}_data"):
@@ -191,32 +215,6 @@ class Validator():
         Self
             Validator object including output variable, {sst_name}_bias.
         """
-        # -- Verify Inputs -- #
-        if not isinstance(sst_name, str):
-            raise TypeError("``sst_name`` name must be specified as a string.")
-        if sst_name not in self.data.variables:
-            raise ValueError(f"{sst_name} not found in ocean model dataset.")
-        
-        if not isinstance(obs_name, str):
-            raise TypeError("``obs_name`` must be specified as a string.")
-        if obs_name not in ['OISSTv2', 'CCI', 'HadISST']:
-            raise ValueError("``obs_name`` must be one of ``OISSTv2``, ``CCI`` or ``HadISST``.")
-
-        if not isinstance(freq, str):
-            raise TypeError("``freq`` must be specified as a string.")
-        if freq not in ['climatology', 'seasonal', 'monthly']:
-            raise ValueError("``freq`` must be one of ``climatology``, ``seasonal`` or ``monthly``.")
-        
-        if not isinstance(method, str):
-            raise TypeError("``method`` must be specified as a string.")
-        if method not in ['bilinear', 'nearest', 'conservative']:
-            raise ValueError("``method`` must be one of ``bilinear``, ``nearest`` or ``conservative``.")
-
-        if not isinstance(regrid, str):
-            raise TypeError("``regrid`` must be specified as a string.")
-        if regrid not in ['model', 'obs']:
-            raise ValueError("``regrid`` must be one of ``model`` or ``obs``.")
-        
         # -- Compute SST Bias -- #
         data = self.compute_2D_bias(var_name=sst_name, obs_name=obs_name, freq=freq, regrid=regrid, method=method)
 
@@ -247,31 +245,6 @@ class Validator():
             Keyword arguments for matplotlib colorbar.
         """
         # -- Verify Inputs -- #
-        if not isinstance(sst_name, str):
-            raise TypeError("variable name must be specified as a string.")
-        if sst_name not in self.data.variables:
-            raise ValueError(f"Variable {sst_name} not found in ocean model dataset.")
-        
-        if not isinstance(obs_name, str):
-            raise TypeError("Observational dataset must be specified as a string.")
-        if obs_name not in ['OISSTv2', 'CCI', 'HadISST']:
-            raise ValueError("Observational dataset must be one of 'OISSTv2', 'CCI' or 'HadISST'.")
-
-        if not isinstance(freq, str):
-            raise TypeError("Frequency must be specified as a string.")
-        if freq not in ['climatology', 'seasonal', 'monthly']:
-            raise ValueError("Frequency must be one of 'climatology', 'seasonal' or 'monthly'.")
-        
-        if not isinstance(method, str):
-            raise TypeError("Method must be specified as a string.")
-        if method not in ['bilinear', 'nearest', 'conservative']:
-            raise ValueError("Method must be one of 'bilinear', 'nearest' or 'conservative'.")
-
-        if not isinstance(regrid, str):
-            raise TypeError("Regrid option must be specified as a string.")
-        if regrid not in ['model', 'obs']:
-            raise ValueError("Regrid option must be one of 'model' or 'obs'.")
-
         if not isinstance(plt_kwargs, dict):
             raise TypeError("Plot kwargs must be specified as a dictionary.")
         if not isinstance(cbar_kwargs, dict):
