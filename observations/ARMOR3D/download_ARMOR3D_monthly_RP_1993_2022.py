@@ -1,14 +1,13 @@
 #########################################################################
 """
-Download subset of ARMOR3D dataset for North Atlantic subdomain from
-Copernicus Marine. This script downloads the monthly reprocessed files
-from 1993 to 2022.
+Download global domain of ARMOR3D dataset from Copernicus Marine.
+This script downloads the monthly reprocessed files from 1993 to 2022.
 
 Created By: Ollie Tooth
 Created On: 2024-09-17
 Contact: oliver.tooth@noc.ac.uk
 
-Note: This download script should be run using the cmems_env environment.
+Note: This download script should be run using the env_npd_obs environment.
 """
 #########################################################################
 
@@ -16,9 +15,9 @@ Note: This download script should be run using the cmems_env environment.
 import copernicusmarine
 
 # Define filepath to credentials:
-credentials_fpath = "/dssgfs01/working/otooth/Diagnostics/proj_NPD_obs/credentials/.copernicusmarine/.copernicusmarine-credentials"
+credentials_fpath = "/home/otooth/.copernicusmarine/.copernicusmarine-credentials"
 # Define output directory:
-out_fdir = "/dssgfs01/working/otooth/Diagnostics/proj_NPD_obs/data/ARMOR3D/data/"
+out_fdir = "/dssgfs01/scratch/otooth/npd_data/observations/ARMOR3D/data/"
 
 # Download the ARMOR3D analysis dataset for North Atlantic subdomain:
 for year in range(1993, 2023):
