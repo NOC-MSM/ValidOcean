@@ -12,7 +12,7 @@
 # ----------------------------------------------------------------
 # Update users via stdout:
 echo "-- Downloading EN.4.2.2 dataset --"
-echo " Oliver J. Tooth, National Oceanography Centre, 2024"
+echo " Oliver J. Tooth, National Oceanography Centre, 2025"
 echo "Downloading: files in EN.4.2.2.analyses.g10.download-list.txt..."
 
 # Define the URL list:
@@ -25,5 +25,5 @@ do
 done
 
 # Update users via stdout:
-echo "...Completed: EN.4.2.2 dataset downloaded"
+echo "...Completed: EN.4.2.2 analyses dataset downloaded"
 
