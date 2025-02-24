@@ -35,6 +35,20 @@ def _plot_global_2d(lon:xr.DataArray, lat:xr.DataArray, var:xr.DataArray,
     cbar_kwargs : dict, optional
         Keyword arguments for plt.colorbar().
     """
+    # -- Verify Inputs -- #
+    if not isinstance(lon, xr.DataArray):
+        raise TypeError("``lon`` must be an xarray.DataArray.")
+    if not isinstance(lat, xr.DataArray):
+        raise TypeError("``lat`` values must be an xarray.DataArray.")
+    if not isinstance(var, xr.DataArray):
+        raise TypeError("``var`` must be an xarray.DataArray.")
+    if not isinstance(figsize, tuple):
+        raise TypeError("figure size must be specified a tuple.")
+    if not isinstance(plt_kwargs, dict):
+        raise TypeError("plot kwargs must be specified as a dictionary.")
+    if not isinstance(cbar_kwargs, dict):
+        raise TypeError("colorbar kwargs must be specified as a dictionary.")
+
     # -- Land & coastline features -- #
     land_50m = cfeature.NaturalEarthFeature('physical', 'land', '50m',
                                     edgecolor='face',
@@ -47,6 +61,8 @@ def _plot_global_2d(lon:xr.DataArray, lat:xr.DataArray, var:xr.DataArray,
     fig = plt.figure(figsize=figsize)
     ax = plt.axes(projection=ccrs.Robinson(central_longitude=-1.0))
     ax.gridlines(draw_labels=True)
+
+    # Plot variable using pcolormesh:
     colormesh = plt.pcolormesh(lon, lat, var, transform=ccrs.PlateCarree(), **plt_kwargs)
     
     # Add features:
