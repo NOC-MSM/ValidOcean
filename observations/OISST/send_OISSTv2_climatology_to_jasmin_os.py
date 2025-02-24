@@ -1,5 +1,5 @@
 """
-send_OISSTv2_to_jasmin_os.py
+send_OISSTv2_climatology_to_jasmin_os.py
 
 Description: Python script to send the OISSTv2 hydrographic
 section climatology (1990-2012) data to the JASMIN Object Store.
@@ -11,7 +11,7 @@ Created on: 2024-12-19
 """
 # -- Import Python packages -- #
 import sys
-import glob
+from tqdm import tqdm
 import numpy as np
 import xarray as xr
 
