@@ -1,8 +1,8 @@
 """
-regrid_utils.py
+regridding.py
 
-Description: This module contains functions for regridding data 
-from one grid to another.
+Description: This module contains functions to regrid ocean
+general circulation model outputs & ocean observations.
 
 Author: Ollie Tooth (oliver.tooth@noc.ac.uk)
 """
@@ -10,11 +10,10 @@ Author: Ollie Tooth (oliver.tooth@noc.ac.uk)
 import xarray as xr
 import xesmf as xe
 
-# -- Regrid source data onto target data grid -- #
 def _regrid_data(source_grid:xr.DataArray, target_grid:xr.DataArray, method:str='bilinear') -> xr.DataArray:
     """
     Regrid data stored on a source grid onto a target grid
-    using xesmf with chosen method.
+    using xesmf Regridder with chosen interpolation method.
 
     Parameters
     ----------
@@ -25,7 +24,7 @@ def _regrid_data(source_grid:xr.DataArray, target_grid:xr.DataArray, method:str=
         Target grid to regrid data onto. Longitude and latitude
         coordinates must be called ``lon`` and ``lat``, respectively.
     method : str
-        Method used by xesmf for regridding.
+        Interpolation method used by xesmf.
         Options: ``bilinear``, ``conservative``, ``nearest_s2d``, ``nearest_d2s``.
 
     Returns
