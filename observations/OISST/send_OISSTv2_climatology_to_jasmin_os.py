@@ -33,14 +33,14 @@ ini_fpath = "http://psl.noaa.gov/thredds/dodsC/Datasets/noaa.oisst.v2.highres/ic
 # Define bucket name:
 bucket = 'npd-obs'
 # Define path to destination zarr store:
-dest = f"{bucket}/OISSTv2/OISSTv2_icec_global_monthly_climatology_1991_2020"
+dest = f"{bucket}/OISSTv2/OISSTv2_siconc_global_monthly_climatology_1991_2020"
 
 # -- Write climatology to .zarr store -- #
 # Define s3fs mapper to destination:
 mapper = obj_store.get_mapper(dest)
 
 # -- Import & Processing: Add metadata attributes -- #
-ds = xr.open_dataset(ini_fpath, decode_times=False)
+ds = xr.open_dataset(ini_fpath, decode_times=False).rename({'icec': 'siconc'})
 ds = ds.rename({'time': 'month'})
 ds = ds.assign_coords(month=np.arange(1, 13))
 

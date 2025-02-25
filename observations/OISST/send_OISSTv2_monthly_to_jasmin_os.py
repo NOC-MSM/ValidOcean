@@ -58,14 +58,14 @@ ini_fpath = "/dssgfs01/working/otooth/Diagnostics/ValidOcean/observations/OISST/
 # Define bucket name:
 bucket = 'npd-obs'
 # Define path to destination zarr store:
-dest = f"{bucket}/OISSTv2/OISSTv2_icec_global_monthly_1981_2025"
+dest = f"{bucket}/OISSTv2/OISSTv2_siconc_global_monthly_1981_2025"
 
 # -- Write climatology to .zarr store -- #
 # Define s3fs mapper to destination:
 mapper = obj_store.get_mapper(dest)
 
 # -- Import & Processing: Add metadata attributes -- #
-ds = xr.open_dataset(ini_fpath, decode_times=True)
+ds = xr.open_dataset(ini_fpath, decode_times=True).rename({'icec':'siconc'})
 
 # Add description attribute:
 ds.attrs['description'] = 'Monthly mean 1991-2020 sea ice concentration from Optimally Interpolated Sea Surface Temperature (OISST) dataset version 2. Downloaded from https://psl.noaa.gov/thredds/fileServer/Datasets/noaa.oisst.v2.highres/icec.mon.mean.nc on 24/02/2025. Transferred to JASMIN Object Store on 24/02/2025.'
