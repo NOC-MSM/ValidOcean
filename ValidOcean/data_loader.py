@@ -35,10 +35,12 @@ class DataLoader(abc.ABC):
     region : str, default: ``None``
         Region of ocean observations dataset to load.
         Options include ``None``, ``arctic``, ``antarctic``.
-    bounds : slice, default: None
-        Time bounds to compute climatology using ocean observations.
-        Default is None, meaning the entire ocean observations dataset
-        is used.
+    bounds : slice, str, default: None
+        Time bounds to extract ocean observations.
+        Default is ``None`` meaning the entire time series is loaded.
+        Custom bounds should be specified using a slice object. Available
+        pre-defined climatologies can be selected using a string
+        (e.g., "1991-2020").
     freq : str, default: ``None``
         Climatology frequency of the ocean observations dataset.
         Options include ``None``, ``total``, ``seasonal``, ``monthly``.
@@ -52,7 +54,7 @@ class DataLoader(abc.ABC):
         Source of ocean observations data.
     _region : str
         Region of ocean observations dataset to load.
-    _bounds : slice
+    _bounds : slice, str
         Time bounds to compute climatology using ocean observations.
     _freq : str
         Climatology frequency of the ocean observations dataset.
@@ -61,7 +63,7 @@ class DataLoader(abc.ABC):
                  var_name: str,
                  source: str = 'jasmin-os',
                  region: str | None = None,
-                 bounds: slice | None = None,
+                 bounds: slice | str | None = None,
                  freq: str | None = None,
                  ):
         # -- Verify Inputs -- #
@@ -73,12 +75,13 @@ class DataLoader(abc.ABC):
             if not isinstance(region, str):
                 raise TypeError("``region`` must be a specfied as a string.")
         if bounds is not None:
-            if not isinstance(bounds, slice):
-                raise TypeError("``bounds`` must be a specfied as a slice.")
-            if not isinstance(bounds.start, str):
-                raise TypeError("``bounds.start`` must be specified as a datetime string (e.g., 'YYYY-MM').")
-            if not isinstance(bounds.stop, str):
-                raise TypeError("``bounds.stop`` must be specified as a datetime string (e.g., 'YYYY-MM')")
+            if not isinstance(bounds, slice) and not isinstance(bounds, str):
+                raise TypeError("``bounds`` must be a specfied as either a slice or a string.")
+            if isinstance(bounds, slice):
+                if not isinstance(bounds.start, str):
+                    raise TypeError("``bounds.start`` must be specified as a datetime string (e.g., 'YYYY-MM').")
+                if not isinstance(bounds.stop, str):
+                    raise TypeError("``bounds.stop`` must be specified as a datetime string (e.g., 'YYYY-MM')")
         if freq is not None:
             if not isinstance(freq, str):
                 raise TypeError("``freq`` must be a specfied as a string.")
@@ -120,7 +123,7 @@ class OISSTv2Loader(DataLoader):
     var_name : str, default: ``sst``
         Name of variable to load from OISSTv2 ocean observations.
         Options include ``sst``, ``siconc``.
-    bounds : slice, default: None
+    bounds : slice, str, default: None
         Time bounds to compute climatology using OISSTv2 ocean observations.
         Default is None, meaning the entire dataset is considered.
     freq : str, default: ``None``
@@ -131,7 +134,7 @@ class OISSTv2Loader(DataLoader):
     def __init__(self,
                  var_name: str = 'sst',
                  region: str | None = None,
-                 bounds: slice | None = None,
+                 bounds: slice | str | None = None,
                  freq: str | None = None,
                  ):
         # -- Verify Inputs -- #
@@ -158,16 +161,28 @@ class OISSTv2Loader(DataLoader):
         """
         # Load data from the JASMIN Object Store:
         if self._var_name == 'sst':
-            url = f"{self._source}/OISSTv2/OISSTv2_sst_global_monthly_1981_2025/"
+            if self._bounds == '1991-2020':
+                url = f"{self._source}/OISSTv2/OISSTv2_sst_global_monthly_climatology_1991_2020/"
+            elif isinstance(self._bounds, slice):
+                url = f"{self._source}/OISSTv2/OISSTv2_sst_global_monthly_1981_2025/"
+            else:
+                raise ValueError("``bounds`` must be specified as a either a slice or string. Available pre-defined climatologies include: '1991-2020'.")
+
         elif self._var_name == 'siconc':
-            url = f"{self._source}/OISSTv2/OISSTv2_siconc_global_monthly_1981_2025/"
+            if self._bounds == '1991-2020':
+                url = f"{self._source}/OISSTv2/OISSTv2_siconc_global_monthly_climatology_1991_2020/"
+            elif isinstance(self._bounds, slice):
+                url = f"{self._source}/OISSTv2/OISSTv2_siconc_global_monthly_1981_2025/"
+            else:
+                raise ValueError("``bounds`` must be specified as a either a slice or string. Available pre-defined climatologies include: '1991-2020'.")
+
         data = xr.open_zarr(url, consolidated=True)[self._var_name]
     
         # Transform longitudes to [-180, 180]:
         data = _transform_longitudes(data)
 
         # Extract climatological period:
-        if self._bounds is not None:
+        if isinstance(self._bounds, slice):
             data = _subset_data(data, bounds=self._bounds)
 
         # Compute climatology:
@@ -191,7 +206,7 @@ class NSIDCLoader(DataLoader):
     region : str, default: ``arctic``
         Region of NSIDC observations dataset to load.
         Options include ``arctic``, ``antarctic``.
-    bounds : slice, default: None
+    bounds : slice, str, default: None
         Time bounds to compute climatology using NSIDC ocean observations.
         Default is None, meaning the entire dataset is considered.
     freq : str, default: ``total``
@@ -202,7 +217,7 @@ class NSIDCLoader(DataLoader):
     def __init__(self,
                  var_name: str,
                  region: str = 'arctic',
-                 bounds: slice | None = None,
+                 bounds: slice | str | None = None,
                  freq: str = 'total'
                  ):
         # -- Verify Inputs -- #
