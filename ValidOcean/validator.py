@@ -115,7 +115,7 @@ class ModelValidator():
                        obs_name : str,
                        var_name : str,
                        region : str | None = None,
-                       bounds : slice | None = None,
+                       bounds : slice | str | None = None,
                        freq : str | None = None,
                        ) -> Self:
         """
@@ -130,9 +130,12 @@ class ModelValidator():
         region : str, default: ``None``
             Region of ocean observations dataset to load. Default is ``None``
             meaning the entire dataset is loaded.
-        bounds : slice, default: None
+        bounds : slice, str, default: None
             Time bounds to compute climatology using ocean observations.
             Default is ``None`` meaning the entire time series is loaded.
+            Custom bounds should be specified using a slice object. Available
+            pre-defined climatologies can be selected using a string
+            (e.g., "1991-2020").
         freq : str, default: ``None``
             Climatology frequency of the observational dataset.
             Options include ``None``, ``total``, ``seasonal``, ``monthly``.
@@ -164,7 +167,7 @@ class ModelValidator():
     def _compute_2D_error(self,
                           var_name : str = 'tos_con',
                           obs : dict = dict(name='OISSTv2', var='sst'),
-                          bounds : slice | None = None,
+                          bounds : slice | str | None = None,
                           freq : str = 'total',
                           regrid_to : str = 'model',
                           method : str = 'bilinear',
@@ -181,10 +184,12 @@ class ModelValidator():
         obs : dict, default: {``name``:``OISSTv2``, ``var``: ``sst``}
             Dictionary defining the ``name`` of the observational
             dataset and variable ``var`` to calculate model error.
-        bounds : slice, default: ``None``
-            Time bounds to compute 2-dimensional variable climatology
-            using ocean model outputs and observations. Default is ``None``
-            meaning the entire ocean model time series is used.
+        bounds : slice, str, default: ``None``
+            Time bounds to compute climatology using ocean observations.
+            Default is ``None`` meaning the entire time series is loaded.
+            Custom bounds should be specified using a slice object. Available
+            pre-defined climatologies can be selected using a string
+            (e.g., "1991-2020").
         freq : str, default: ``total``
             Frequency to calculate ocean model error. 
             Options include ``total``, ``seasonal``, ``monthly``.
@@ -228,7 +233,10 @@ class ModelValidator():
 
         # -- Process Ocean Model Data -- #
         if bounds is not None:
+            if isinstance(bounds, str):
+                bounds = slice(bounds.split('-')[0], bounds.split('-')[1])
             mdl_data = _subset_data(data=self._data[var_name], bounds=bounds, is_obs=False)
+
         mdl_data = _compute_climatology(data=mdl_data, freq=freq)
 
         # -- Regrid Data -- #
@@ -246,7 +254,7 @@ class ModelValidator():
 
         # -- Compute Aggregate Statistics -- #
         if stats:
-            self.stats = _compute_agg_stats(mdl_error=mdl_error)
+            self.stats = _compute_agg_stats(error=mdl_error)
 
         return self
 
@@ -254,7 +262,7 @@ class ModelValidator():
     def compute_sst_error(self,
                           sst_name : str = 'tos_con',
                           obs_name : str = 'OISSTv2',
-                          bounds : slice | None = None,
+                          bounds : slice | str | None = None,
                           freq : str = 'total',
                           regrid_to : str = 'model',
                           method : str = 'bilinear',
@@ -270,10 +278,12 @@ class ModelValidator():
         obs_name : str, default: ``OISSTv2``
             Name of observational dataset.
             Options include ``OISSTv2``, ``CCI`` and ``HadISST``.
-        bounds : slice, default: ``None``
-            Time bounds to sea surface temperature compute climatologies using ocean model
-            outputs and observations. Default is ``None`` meaning the entire ocean model
-            time series is used.
+        bounds : slice, str, default: ``None``
+            Time bounds to compute sea surface temperature climatologies.
+            Default is ``None`` meaning the entire time series is loaded.
+            Custom bounds should be specified using a slice object. Available
+            pre-defined climatologies can be selected using a string
+            (e.g., "1991-2020").
         freq : str, default: ``total``
             Climatology frequency to compute sea surface temperature error. 
             Options include ``total``, ``seasonal``, ``monthly``.
@@ -309,7 +319,7 @@ class ModelValidator():
     def plot_sst_error(self,
                        sst_name : str = 'tos_con',
                        obs_name : str = 'OISSTv2',
-                       bounds : slice | None = None,
+                       bounds : slice | str | None = None,
                        freq : str = 'total',
                        regrid_to : str = 'model',
                        method : str = 'bilinear',
@@ -327,10 +337,11 @@ class ModelValidator():
         obs_name : str, default: ``OISSTv2``
             Name of observational dataset.
             Options include ``OISSTv2``, ``CCI`` and ``HadISST``.
-        bounds : slice, default: ``None``
-            Time bounds to compute sea surface temperature climatologies using ocean model
-            outputs and observations. Default is ``None`` meaning the entire ocean model
-            time series is used.
+        bounds : slice, str, default: ``None``
+            Time bounds to compute sea surface temperature climatologies. Default is ``None``
+            meaning the entire time series is loaded. Custom bounds should be specified using
+            a slice object. Available pre-defined climatologies can be selected using a
+            string (e.g., "1991-2020").
         freq : str, default: ``total``
             Climatology frequency to compute sea surface temperature error.
             Options include ``total``, ``seasonal``, ``monthly``.
@@ -377,7 +388,7 @@ class ModelValidator():
                           obs_name : str,
                           var_name : str,
                           region : str | None = None,
-                          bounds : slice | None = None,
+                          bounds : slice | str | None = None,
                           freq : str | None = None,
                           ) -> Self:
         """
@@ -392,9 +403,12 @@ class ModelValidator():
         region : str, default: ``None``
             Region of ocean observations dataset to load. Default is ``None``
             meaning the entire dataset is loaded.
-        bounds : slice, default: None
-            Time bounds to compute climatology using ocean observations.
+        bounds : slice, str, default: None
+            Time bounds to extract ocean observations.
             Default is ``None`` meaning the entire time series is loaded.
+            Custom bounds should be specified using a slice object. Available
+            pre-defined climatologies can be selected using a string
+            (e.g., "1991-2020").
         freq : str, default: ``None``
             Climatology frequency of the observational dataset.
             Options include ``None``, ``total``, ``seasonal``, ``monthly``.
@@ -411,5 +425,10 @@ class ModelValidator():
 
         # -- Store Observational Data -- #
         self._obs[f"{var_name}_{obs_name}"] = obs_data.rename({'lon':f"lon_{obs_name}", 'lat':f"lat_{obs_name}"})
+
+        # -- Remove Redundant Coordinates -- #
+        coord_names = [self._obs[var].coords for var in self._obs.data_vars]
+        coord_names = set([item for sublist in coord_names for item in sublist]) ^ set(self._obs.coords)
+        self._obs = self._obs.drop_vars(names=coord_names)
 
         return self
