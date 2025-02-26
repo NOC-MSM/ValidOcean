@@ -17,7 +17,7 @@ from typing import Self
 import ValidOcean.data_loader as data_loader
 from ValidOcean.data_loader import DataLoader
 from ValidOcean.preprocess import _subset_data, _compute_climatology
-from ValidOcean.statistics import _compute_agg_stats
+from ValidOcean.metrics import _compute_agg_stats
 from ValidOcean.regridding import _regrid_data
 from ValidOcean.plotting import _plot_global_2d
 
@@ -107,6 +107,10 @@ class ModelValidator():
         self._stats = value
 
     # -- Class Methods -- #
+    def __repr__(self) -> str:
+        return f"\n<ModelValidator>\n\n-- Model Data --\n\n{self._data}\n\n-- Observations --\n\n{self._obs}\n\n-- Results --\n\n{self._results}\n\n-- Stats --\n\n{self._stats}"
+
+
     def _load_obs_data(self,
                        obs_name : str,
                        var_name : str,
@@ -164,7 +168,7 @@ class ModelValidator():
                           freq : str = 'total',
                           regrid_to : str = 'model',
                           method : str = 'bilinear',
-                          agg_stats : bool = True,
+                          stats : bool = True,
                           ) -> Self:
         """
         Compute error between ocean model output
@@ -189,7 +193,7 @@ class ModelValidator():
         method : str, default: ``bilinear``
             Method used to interpolate model and observed variables onto target grid.
             Options include ``bilinear``, ``nearest``, ``conservative``.
-        agg_stats : bool, default: ``True``
+        stats : bool, default: ``True``
             Return aggregated statistics of (model - observation) error.
             Includes Mean Absolute Error, Mean Square Error & Root Mean Square Error.
 
@@ -216,8 +220,8 @@ class ModelValidator():
         if regrid_to not in ['model', 'obs']:
             raise ValueError("``regrid`` must be one of ``model`` or ``obs``.")
 
-        if not isinstance(agg_stats, bool):
-            raise TypeError("``agg_stats`` must be specified as a boolean.")
+        if not isinstance(stats, bool):
+            raise TypeError("``stats`` must be specified as a boolean.")
 
         # -- Load Observational Data -- #
         obs_data = self._load_obs_data(obs_name=obs['name'], var_name=obs['var'], region=obs['region'], bounds=bounds, freq=freq)
@@ -241,7 +245,7 @@ class ModelValidator():
             self.results[f"{var_name}_error"] = mdl_error.rename({'lon':f"lon_{obs['name']}", 'lat':f"lat_{obs['name']}"})
 
         # -- Compute Aggregate Statistics -- #
-        if agg_stats:
+        if stats:
             self.stats = _compute_agg_stats(mdl_error=mdl_error)
 
         return self
@@ -254,7 +258,7 @@ class ModelValidator():
                           freq : str = 'total',
                           regrid_to : str = 'model',
                           method : str = 'bilinear',
-                          agg_stats : bool = True,
+                          stats : bool = True,
                           ) -> Self:
         """
         Compute sea surface temperature error between ocean model and observations (model - observation).
@@ -278,7 +282,7 @@ class ModelValidator():
         method : str, default: ``bilinear``
             Method used to interpolate model and observed data onto target grid.
             Options include ``bilinear``, ``nearest``, ``conservative``.
-        agg_stats : bool, default: ``False``
+        stats : bool, default: ``False``
             Return aggregated statistics of (model - observation) error.
             Includes Mean Absolute Error, Mean Square Error & Root Mean Square Error.
 
@@ -296,7 +300,7 @@ class ModelValidator():
                                freq=freq,
                                regrid_to=regrid_to,
                                method=method,
-                               agg_stats=agg_stats,
+                               stats=stats,
                                )
 
         return self
@@ -309,7 +313,7 @@ class ModelValidator():
                        freq : str = 'total',
                        regrid_to : str = 'model',
                        method : str = 'bilinear',
-                       agg_stats : bool = True,
+                       stats : bool = True,
                        plt_kwargs : dict = dict(cmap='RdBu_r', vmin=-2, vmax=2),
                        cbar_kwargs : dict = dict(orientation='horizontal', shrink=0.8)
                        ) -> None:
@@ -335,7 +339,7 @@ class ModelValidator():
         method : str, default: ``bilinear``
             Method used to interpolate model and observed data onto target grid.
             Options include ``bilinear``, ``nearest``, ``conservative``.
-        agg_stats : bool, default: ``False``
+        stats : bool, default: ``False``
             Return aggregated statistics of (model - observation) error.
             Includes Mean Absolute Error, Mean Square Error & Root Mean Square Error.
         plt_kwargs : dict, default: ``{'cmap':'RdBu_r', 'vmin':-2, 'vmax':2}``
@@ -356,7 +360,7 @@ class ModelValidator():
                                    freq=freq,
                                    regrid_to=regrid_to,
                                    method=method,
-                                   agg_stats=agg_stats,
+                                   stats=stats,
                                    )
 
         # -- Plot SST Error -- #
