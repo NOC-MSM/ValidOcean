@@ -12,7 +12,7 @@ Author: Ollie Tooth (oliver.tooth@noc.ac.uk)
 import numpy as np
 import xarray as xr
 
-def _compute_agg_stats(mdl_error: xr.DataArray) -> dict:
+def _compute_agg_stats(error: xr.DataArray) -> dict:
     """
     Compute aggregated statistics to compare ocean model output
     and ocean observations.
@@ -22,7 +22,7 @@ def _compute_agg_stats(mdl_error: xr.DataArray) -> dict:
 
     Parameters
     ----------
-    mdl_error : xarray.DataArray
+    error : xarray.DataArray
         Error between ocean model output and ocean observations.
 
     Returns
@@ -31,14 +31,14 @@ def _compute_agg_stats(mdl_error: xr.DataArray) -> dict:
         Dictionary containing aggregated statistics.
     """
     # -- Verify Inputs -- #
-    if not isinstance(mdl_error, xr.DataArray):
-        raise TypeError("``mdl_error`` must be an xarray.DataArray.")
+    if not isinstance(error, xr.DataArray):
+        raise TypeError("``error`` must be an xarray.DataArray.")
 
     # -- Compute Aggregated Statistics -- #
     agg_stats = {}
-    agg_stats['Mean Absolute Error'] = mean_abs_error(mdl_error)
-    agg_stats['Mean Square Error'] = mean_square_error(mdl_error)
-    agg_stats['Root Mean Square Error'] = root_mean_square_error(mdl_error)
+    agg_stats['Mean Absolute Error'] = mean_abs_error(error).values.item(0)
+    agg_stats['Mean Square Error'] = mean_square_error(error).values.item(0)
+    agg_stats['Root Mean Square Error'] = root_mean_square_error(error).values.item(0)
 
     return agg_stats
 
@@ -52,7 +52,7 @@ def mean_abs_error(error):
     error : xr.DataArray
         2-dimensional DataArray of errors.
     """
-    return np.abs(error).mean(skipna=True).values.item(0)
+    return np.abs(error).mean(skipna=True)
 
 def mean_square_error(error):
     """
@@ -64,7 +64,7 @@ def mean_square_error(error):
     error : xr.DataArray
         2-dimensional DataArray of errors.
     """
-    return np.square(np.abs(error)).mean(skipna=True).values.item(0)
+    return np.square(np.abs(error)).mean(skipna=True)
 
 def root_mean_square_error(error):
     """
@@ -76,4 +76,4 @@ def root_mean_square_error(error):
     error : xr.DataArray
         2-dimensional DataArray of errors.
     """
-    return np.sqrt(np.square(np.abs(error)).mean(skipna=True)).values.item(0)
+    return np.sqrt(np.square(np.abs(error)).mean(skipna=True))
