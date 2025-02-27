@@ -41,19 +41,19 @@ def _transform_longitudes(data: xr.DataArray) -> xr.DataArray:
 
     return data
 
-def _subset_data(data : xr.DataArray,
-                 bounds : slice,
+def _apply_time_bounds(data : xr.DataArray,
+                 time_bounds : slice,
                  is_obs : bool = True,
                  ) -> xr.DataArray:
     """
-    Subset a given xarray DataArray to the specified
-    temporal bounds.
+    Subset a given xarray DataArray according to the
+    specified time bounds.
 
     Parameters
     ----------
     data : xarray.DataArray
         DataArray containing the variable to subset.
-    bounds : slice
+    time_bounds : slice
         Time bounds to subset the data. Must be a slice
         object with start and stop datetime strings.
     is_obs : bool, default: False
@@ -73,27 +73,94 @@ def _subset_data(data : xr.DataArray,
         raise ValueError("``data`` must contain variable ``time``.")
     if not np.issubdtype(data.time.dtype, np.datetime64):
         raise TypeError("variable ``time`` dtype must be datetime64.")
-    if not isinstance(bounds, slice):
-        raise TypeError("``bounds`` must be a slice.")
-    if not isinstance(bounds.start, str):
-        raise TypeError("``bounds.start`` must be a datetime string (e.g., 'YYYY-MM').")
-    if not isinstance(bounds.stop, str):
-        raise TypeError("``bounds.stop`` must be a datetime string (e.g., 'YYYY-MM')")
+    if not isinstance(time_bounds, slice):
+        raise TypeError("``time_bounds`` must be a slice.")
+    if not isinstance(time_bounds.start, str):
+        raise TypeError("``time_bounds.start`` must be a datetime string (e.g., 'YYYY-MM').")
+    if not isinstance(time_bounds.stop, str):
+        raise TypeError("``time_bounds.stop`` must be a datetime string (e.g., 'YYYY-MM')")
     if not isinstance(is_obs, bool):
         raise TypeError("``is_obs`` flag must be a boolean.")
     
-    #  -- Raise Warning if Bounds Outside Data -- #
-    if (np.datetime64(bounds.start) < data.time.min()) | (np.datetime64(bounds.stop) > data.time.max()):
+    #  -- Raise Warning if Bounds Outside Time Series -- #
+    if (np.datetime64(time_bounds.start) < data.time.min()) | (np.datetime64(time_bounds.stop) > data.time.max()):
         if is_obs:
             data_type = 'observations'
         else:
             data_type = 'model'
 
-        warning_message = f"bounds {bounds.start} - {bounds.stop} are outside the range of available {data_type} data {data.time.min().values.astype('datetime64[D]')} - {data.time.max().values.astype('datetime64[D]')}."
+        warning_message = f"time_bounds {time_bounds.start} - {time_bounds.stop} are outside the range of available {data_type} data {data.time.min().values.astype('datetime64[D]')} - {data.time.max().values.astype('datetime64[D]')}."
         warnings.warn(warning_message, RuntimeWarning)
     
     # -- Subset Data -- #
-    data = data.sel(time=bounds)
+    data = data.sel(time=time_bounds)
+
+    return data
+
+
+def _apply_spatial_bounds(data : xr.DataArray,
+                 lon_bounds : tuple,
+                 lat_bounds : tuple,
+                 is_obs : bool = True,
+                 ) -> xr.DataArray:
+    """
+    Subset a given xarray DataArray according to the
+    specified spatial bounds (lon, lat).
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        DataArray containing the variable to subset.
+    lon_bounds : tuple
+        Longitude bounds to subset the data. Must be a
+        tuple with minimum and maximum values.
+    lat_bounds : tuple
+        Latitude bounds to subset the data. Must be a
+        tuple with minimum and maximum values.
+    is_obs : bool, default: False
+        Flag to indicate if the data is from an ocean
+        observations dataset. Default is True.
+    
+    Returns
+    -------
+    xarray.DataArray
+        DataArray containing the variable subset to the
+        specified time bounds.
+    """
+    # -- Verify Inputs -- #
+    if not isinstance(data, xr.DataArray):
+        raise TypeError("``data`` must be an xarray DataArray.")
+    if 'lon' not in data.coords or 'lat' not in data.coords:
+        raise ValueError("``data`` must contain coordinates ``lon`` and ``lat``.")
+    if not isinstance(lon_bounds, tuple):
+        raise TypeError("``lon_bounds`` must be a tuple.")
+    if (lon_bounds[0] < -180) or (lon_bounds[1] > 180):
+        raise ValueError("``lon_bounds`` must be within the range (-180, 180).")
+    if not isinstance(lat_bounds, tuple):
+        raise TypeError("``lat_bounds`` must be a tuple.")
+    if (lat_bounds[0] < -90) or (lat_bounds[1] > 90):
+        raise ValueError("``lat_bounds`` must be within the range (-90, 90).")
+    if not isinstance(is_obs, bool):
+        raise TypeError("``is_obs`` flag must be a boolean.")
+    
+    #  -- Raise Warning if Bounds Outside Domain -- #
+    if ((lon_bounds[0] < np.floor(data.lon.min())) or
+        (lon_bounds[1] > np.ceil(data.lon.max())) or
+        (lat_bounds[0] < np.floor(data.lat.min())) or
+        (lat_bounds[1] > np.ceil(data.lat.max()))
+        ):
+        if is_obs:
+            data_type = 'observations'
+        else:
+            data_type = 'model'
+
+        warning_message = f"longitude: {lon_bounds[0]} - {lon_bounds[1]}, latitude: {lat_bounds[0]} - {lat_bounds[1]} bounds are outside the range of available {data_type} data [longitude:{data.lon.min().values.astype(float)} - {data.lon.max().values.astype(float)}, latitude:{data.lat.min().values.astype(float)} - {data.lat.max().values.astype(float)}]."
+        warnings.warn(warning_message, RuntimeWarning)
+    
+    # -- Subset Data -- #
+    data = data.where((data.lon >= lon_bounds[0]) & (data.lon <= lon_bounds[1]) &
+                      (data.lat >= lat_bounds[0]) & (data.lat <= lat_bounds[1]),
+                      drop=True)
 
     return data
 
