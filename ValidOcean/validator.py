@@ -16,7 +16,7 @@ from typing import Self
 # -- Import utility functions -- #
 import ValidOcean.data_loader as data_loader
 from ValidOcean.data_loader import DataLoader
-from ValidOcean.preprocess import _subset_data, _compute_climatology
+from ValidOcean.preprocess import _apply_time_bounds, _compute_climatology
 from ValidOcean.metrics import _compute_agg_stats
 from ValidOcean.regridding import _regrid_data
 from ValidOcean.plotting import _plot_global_2d
@@ -76,6 +76,9 @@ class ModelValidator():
 
         self._lon = self._data['lon'].squeeze()
         self._lat = self._data['lat'].squeeze()
+        # Model domain bounds rounded to nearest largest integer:
+        self._lon_bounds = (np.floor(self._lon.min()), np.ceil(self._lon.max()))
+        self._lat_bounds = (np.floor(self._lat.min()), np.ceil(self._lat.max()))
 
     # -- Class Properties -- #
     @property
@@ -115,7 +118,9 @@ class ModelValidator():
                        obs_name : str,
                        var_name : str,
                        region : str | None = None,
-                       bounds : slice | str | None = None,
+                       time_bounds : slice | str | None = None,
+                       lon_bounds : tuple | None = None,
+                       lat_bounds : tuple | None = None,
                        freq : str | None = None,
                        ) -> Self:
         """
@@ -130,12 +135,18 @@ class ModelValidator():
         region : str, default: ``None``
             Region of ocean observations dataset to load. Default is ``None``
             meaning the entire dataset is loaded.
-        bounds : slice, str, default: None
+        time_bounds : slice, str, default: None
             Time bounds to compute climatology using ocean observations.
             Default is ``None`` meaning the entire time series is loaded.
             Custom bounds should be specified using a slice object. Available
             pre-defined climatologies can be selected using a string
             (e.g., "1991-2020").
+        lon_bounds : tuple, default: None
+            Longitude bounds to extract from ocean observations.
+            Default is ``None`` meaning the entire longitude range is loaded.
+        lat_bounds : tuple, default: None
+            Latitude bounds to extract from ocean observations.
+            Default is ``None`` meaning the entire latitude range is loaded.
         freq : str, default: ``None``
             Climatology frequency of the observational dataset.
             Options include ``None``, ``total``, ``seasonal``, ``monthly``.
@@ -155,11 +166,23 @@ class ModelValidator():
         if self._dataloader is None:
             if hasattr(data_loader, f"{obs_name}Loader"):
                 ObsDataLoader = getattr(data_loader, f"{obs_name}Loader")
-                obs_data = ObsDataLoader(var_name=var_name, region=region, bounds=bounds, freq=freq)._load_data()
+                obs_data = ObsDataLoader(var_name=var_name,
+                                         region=region,
+                                         time_bounds=time_bounds,
+                                         lon_bounds=lon_bounds,
+                                         lat_bounds=lat_bounds,
+                                         freq=freq
+                                         )._load_data()
             else:
                 raise ValueError(f"undefined DataLoader specified: {obs_name}Loader.")
         else:
-            obs_data = self._dataloader(var_name=var_name, region=region, bounds=bounds, freq=freq)._load_data()
+            obs_data = self._dataloader(var_name=var_name,
+                                        region=region,
+                                        time_bounds=time_bounds,
+                                        lon_bounds=lon_bounds,
+                                        lat_bounds=lat_bounds,
+                                        freq=freq
+                                        )._load_data()
 
         return obs_data
 
@@ -167,7 +190,7 @@ class ModelValidator():
     def _compute_2D_error(self,
                           var_name : str = 'tos_con',
                           obs : dict = dict(name='OISSTv2', var='sst'),
-                          bounds : slice | str | None = None,
+                          time_bounds : slice | str | None = None,
                           freq : str = 'total',
                           regrid_to : str = 'model',
                           method : str = 'bilinear',
@@ -184,7 +207,7 @@ class ModelValidator():
         obs : dict, default: {``name``:``OISSTv2``, ``var``: ``sst``}
             Dictionary defining the ``name`` of the observational
             dataset and variable ``var`` to calculate model error.
-        bounds : slice, str, default: ``None``
+        time_bounds : slice, str, default: ``None``
             Time bounds to compute climatology using ocean observations.
             Default is ``None`` meaning the entire time series is loaded.
             Custom bounds should be specified using a slice object. Available
@@ -229,13 +252,13 @@ class ModelValidator():
             raise TypeError("``stats`` must be specified as a boolean.")
 
         # -- Load Observational Data -- #
-        obs_data = self._load_obs_data(obs_name=obs['name'], var_name=obs['var'], region=obs['region'], bounds=bounds, freq=freq)
+        obs_data = self._load_obs_data(obs_name=obs['name'], var_name=obs['var'], region=obs['region'], time_bounds=time_bounds, freq=freq)
 
         # -- Process Ocean Model Data -- #
-        if bounds is not None:
-            if isinstance(bounds, str):
-                bounds = slice(bounds.split('-')[0], bounds.split('-')[1])
-            mdl_data = _subset_data(data=self._data[var_name], bounds=bounds, is_obs=False)
+        if time_bounds is not None:
+            if isinstance(time_bounds, str):
+                time_bounds = slice(time_bounds.split('-')[0], time_bounds.split('-')[1])
+            mdl_data = _apply_time_bounds(data=self._data[var_name], time_bounds=time_bounds, is_obs=False)
 
         mdl_data = _compute_climatology(data=mdl_data, freq=freq)
 
@@ -262,7 +285,7 @@ class ModelValidator():
     def compute_sst_error(self,
                           sst_name : str = 'tos_con',
                           obs_name : str = 'OISSTv2',
-                          bounds : slice | str | None = None,
+                          time_bounds : slice | str | None = None,
                           freq : str = 'total',
                           regrid_to : str = 'model',
                           method : str = 'bilinear',
@@ -278,7 +301,7 @@ class ModelValidator():
         obs_name : str, default: ``OISSTv2``
             Name of observational dataset.
             Options include ``OISSTv2``, ``CCI`` and ``HadISST``.
-        bounds : slice, str, default: ``None``
+        time_bounds : slice, str, default: ``None``
             Time bounds to compute sea surface temperature climatologies.
             Default is ``None`` meaning the entire time series is loaded.
             Custom bounds should be specified using a slice object. Available
@@ -306,7 +329,7 @@ class ModelValidator():
         # -- Compute SST Error -- #
         self._compute_2D_error(var_name=sst_name,
                                obs=dict(name=obs_name, region=None, var='sst'),
-                               bounds=bounds,
+                               time_bounds=time_bounds,
                                freq=freq,
                                regrid_to=regrid_to,
                                method=method,
@@ -319,7 +342,7 @@ class ModelValidator():
     def plot_sst_error(self,
                        sst_name : str = 'tos_con',
                        obs_name : str = 'OISSTv2',
-                       bounds : slice | str | None = None,
+                       time_bounds : slice | str | None = None,
                        freq : str = 'total',
                        regrid_to : str = 'model',
                        method : str = 'bilinear',
@@ -337,7 +360,7 @@ class ModelValidator():
         obs_name : str, default: ``OISSTv2``
             Name of observational dataset.
             Options include ``OISSTv2``, ``CCI`` and ``HadISST``.
-        bounds : slice, str, default: ``None``
+        time_bounds : slice, str, default: ``None``
             Time bounds to compute sea surface temperature climatologies. Default is ``None``
             meaning the entire time series is loaded. Custom bounds should be specified using
             a slice object. Available pre-defined climatologies can be selected using a
@@ -367,7 +390,7 @@ class ModelValidator():
         if f"{sst_name}_error" not in self._results.variables:
             self._compute_2D_error(var_name=sst_name,
                                    obs=dict(name=obs_name, region=None, var='sst'),
-                                   bounds=bounds,
+                                   time_bounds=time_bounds,
                                    freq=freq,
                                    regrid_to=regrid_to,
                                    method=method,
@@ -388,7 +411,9 @@ class ModelValidator():
                           obs_name : str,
                           var_name : str,
                           region : str | None = None,
-                          bounds : slice | str | None = None,
+                          time_bounds : slice | str | None = None,
+                          lon_bounds : tuple | None = None,
+                          lat_bounds : tuple | None = None,
                           freq : str | None = None,
                           ) -> Self:
         """
@@ -403,12 +428,18 @@ class ModelValidator():
         region : str, default: ``None``
             Region of ocean observations dataset to load. Default is ``None``
             meaning the entire dataset is loaded.
-        bounds : slice, str, default: None
+        time_bounds : slice, str, default: None
             Time bounds to extract ocean observations.
             Default is ``None`` meaning the entire time series is loaded.
             Custom bounds should be specified using a slice object. Available
             pre-defined climatologies can be selected using a string
             (e.g., "1991-2020").
+        lon_bounds : tuple, default: None
+            Longitude bounds to extract from ocean observations.
+            Default is ``None`` meaning the entire longitude range is loaded.
+        lat_bounds : tuple, default: None
+            Latitude bounds to extract from ocean observations.
+            Default is ``None`` meaning the entire latitude range is loaded.
         freq : str, default: ``None``
             Climatology frequency of the observational dataset.
             Options include ``None``, ``total``, ``seasonal``, ``monthly``.
@@ -421,7 +452,14 @@ class ModelValidator():
             attribute.
         """       
         # -- Load Ocean Observations Dataset -- #
-        obs_data = self._load_obs_data(obs_name=obs_name, var_name=var_name, region=region, bounds=bounds, freq=freq)
+        obs_data = self._load_obs_data(obs_name=obs_name,
+                                       var_name=var_name,
+                                       region=region,
+                                       time_bounds=time_bounds,
+                                       lon_bounds=lon_bounds,
+                                       lat_bounds=lat_bounds,
+                                       freq=freq
+                                       )
 
         # -- Store Observational Data -- #
         self._obs[f"{var_name}_{obs_name}"] = obs_data.rename({'lon':f"lon_{obs_name}", 'lat':f"lat_{obs_name}"})
