@@ -13,7 +13,7 @@ import abc
 import numpy as np
 import xarray as xr
 
-from ValidOcean.preprocess import _subset_data, _compute_climatology, _transform_longitudes
+from ValidOcean.preprocess import _apply_spatial_bounds, _apply_time_bounds, _compute_climatology, _transform_longitudes
 
 # -- DataLoader Abstract Base Class -- #
 class DataLoader(abc.ABC):
@@ -35,12 +35,18 @@ class DataLoader(abc.ABC):
     region : str, default: ``None``
         Region of ocean observations dataset to load.
         Options include ``None``, ``arctic``, ``antarctic``.
-    bounds : slice, str, default: None
+    time_bounds : slice, str, default: None
         Time bounds to extract ocean observations.
         Default is ``None`` meaning the entire time series is loaded.
         Custom bounds should be specified using a slice object. Available
         pre-defined climatologies can be selected using a string
         (e.g., "1991-2020").
+    lon_bounds : tuple, default: None
+        Longitude bounds to extract from ocean observations.
+        Default is ``None`` meaning the entire longitude range is loaded.
+    lat_bounds : tuple, default: None
+        Latitude bounds to extract from ocean observations.
+        Default is ``None`` meaning the entire latitude range is loaded.
     freq : str, default: ``None``
         Climatology frequency of the ocean observations dataset.
         Options include ``None``, ``total``, ``seasonal``, ``monthly``.
@@ -54,8 +60,12 @@ class DataLoader(abc.ABC):
         Source of ocean observations data.
     _region : str
         Region of ocean observations dataset to load.
-    _bounds : slice, str
+    _time_bounds : slice, str
         Time bounds to compute climatology using ocean observations.
+    _lon_bounds : tuple
+        Longitude bounds to extract from ocean observations.
+    _lat_bounds : tuple
+        Latitude bounds to extract from ocean observations.
     _freq : str
         Climatology frequency of the ocean observations dataset.
     """
@@ -63,7 +73,9 @@ class DataLoader(abc.ABC):
                  var_name: str,
                  source: str = 'jasmin-os',
                  region: str | None = None,
-                 bounds: slice | str | None = None,
+                 time_bounds: slice | str | None = None,
+                 lon_bounds: tuple | None = None,
+                 lat_bounds: tuple | None = None,
                  freq: str | None = None,
                  ):
         # -- Verify Inputs -- #
@@ -74,29 +86,45 @@ class DataLoader(abc.ABC):
         if region is not None:
             if not isinstance(region, str):
                 raise TypeError("``region`` must be a specfied as a string.")
-        if bounds is not None:
-            if not isinstance(bounds, slice) and not isinstance(bounds, str):
-                raise TypeError("``bounds`` must be a specfied as either a slice or a string.")
-            if isinstance(bounds, slice):
-                if not isinstance(bounds.start, str):
-                    raise TypeError("``bounds.start`` must be specified as a datetime string (e.g., 'YYYY-MM').")
-                if not isinstance(bounds.stop, str):
-                    raise TypeError("``bounds.stop`` must be specified as a datetime string (e.g., 'YYYY-MM')")
+        if time_bounds is not None:
+            if not isinstance(time_bounds, slice) and not isinstance(time_bounds, str):
+                raise TypeError("``time_bounds`` must be a specfied as either a slice or a string.")
+            if isinstance(time_bounds, slice):
+                if not isinstance(time_bounds.start, str):
+                    raise TypeError("``time_bounds.start`` must be specified as a datetime string (e.g., 'YYYY-MM').")
+                if not isinstance(time_bounds.stop, str):
+                    raise TypeError("``time_bounds.stop`` must be specified as a datetime string (e.g., 'YYYY-MM')")
+        if lon_bounds is not None:
+            if not isinstance(lon_bounds, tuple):
+                raise TypeError("``lon_bounds`` must be a specfied as a tuple.")
+        if lat_bounds is not None:
+            if not isinstance(lat_bounds, tuple):
+                raise TypeError("``lat_bounds`` must be a specfied as a tuple.")
         if freq is not None:
             if not isinstance(freq, str):
                 raise TypeError("``freq`` must be a specfied as a string.")
             if freq not in ['total', 'seasonal', 'monthly']:
                 raise ValueError("``freq`` must be one of 'total', 'seasonal', 'monthly'.")
         
-        # -- Define DataLoader Attributes -- #
+        # -- Class Attributes -- #
         self._var_name = var_name
-        self._bounds = bounds
+        self._time_bounds = time_bounds
         self._freq = freq
         self._region = region
+
         if source == 'jasmin-os':
             self._source = "https://noc-msm-o.s3-ext.jc.rl.ac.uk/npd-obs"
         else:
             self._source = source
+
+        if lon_bounds is None:
+            self._lon_bounds = (-180, 180)
+        else:
+            self._lon_bounds = lon_bounds
+        if lat_bounds is None:
+            self._lat_bounds = (-90, 90)
+        else:
+            self._lat_bounds = lat_bounds
 
     @abc.abstractmethod
     def _load_data(self) -> xr.DataArray:
@@ -123,9 +151,15 @@ class OISSTv2Loader(DataLoader):
     var_name : str, default: ``sst``
         Name of variable to load from OISSTv2 ocean observations.
         Options include ``sst``, ``siconc``.
-    bounds : slice, str, default: None
+    time_bounds : slice, str, default: None
         Time bounds to compute climatology using OISSTv2 ocean observations.
-        Default is None, meaning the entire dataset is considered.
+        Default is ``None``, meaning the entire dataset is considered.
+    lon_bounds : tuple, default: None
+        Longitude bounds to extract from OISSTv2 ocean observations.
+        Default is ``None``, meaning the entire longitude range is loaded.
+    lat_bounds : tuple, default: None
+        Latitude bounds to extract from OISSTv2 ocean observations.
+        Default is ``None``, meaning the entire latitude range is loaded.
     freq : str, default: ``None``
         Climatology frequency of the OISSTv2 ocean observations.
         Options include ``None``, ``total``, ``seasonal``, ``monthly``.
@@ -134,7 +168,9 @@ class OISSTv2Loader(DataLoader):
     def __init__(self,
                  var_name: str = 'sst',
                  region: str | None = None,
-                 bounds: slice | str | None = None,
+                 time_bounds: slice | str | None = None,
+                 lon_bounds: tuple | None = None,
+                 lat_bounds: tuple | None = None,
                  freq: str | None = None,
                  ):
         # -- Verify Inputs -- #
@@ -145,7 +181,9 @@ class OISSTv2Loader(DataLoader):
         super().__init__(var_name=var_name,
                          region=region,
                          source='jasmin-os',
-                         bounds=bounds,
+                         time_bounds=time_bounds,
+                         lon_bounds=lon_bounds,
+                         lat_bounds=lat_bounds,
                          freq=freq)
 
     def _load_data(self) -> xr.DataArray:
@@ -161,29 +199,30 @@ class OISSTv2Loader(DataLoader):
         """
         # Load data from the JASMIN Object Store:
         if self._var_name == 'sst':
-            if self._bounds == '1991-2020':
+            if self._time_bounds == '1991-2020':
                 url = f"{self._source}/OISSTv2/OISSTv2_sst_global_monthly_climatology_1991_2020/"
-            elif isinstance(self._bounds, slice):
+            elif isinstance(self._time_bounds, slice):
                 url = f"{self._source}/OISSTv2/OISSTv2_sst_global_monthly_1981_2025/"
             else:
-                raise ValueError("``bounds`` must be specified as a either a slice or string. Available pre-defined climatologies include: '1991-2020'.")
+                raise ValueError("``_time_bounds`` must be specified as a either a slice or string. Available pre-defined climatologies include: '1991-2020'.")
 
         elif self._var_name == 'siconc':
-            if self._bounds == '1991-2020':
+            if self._time_bounds == '1991-2020':
                 url = f"{self._source}/OISSTv2/OISSTv2_siconc_global_monthly_climatology_1991_2020/"
-            elif isinstance(self._bounds, slice):
+            elif isinstance(self._time_bounds, slice):
                 url = f"{self._source}/OISSTv2/OISSTv2_siconc_global_monthly_1981_2025/"
             else:
-                raise ValueError("``bounds`` must be specified as a either a slice or string. Available pre-defined climatologies include: '1991-2020'.")
+                raise ValueError("``_time_bounds`` must be specified as a either a slice or string. Available pre-defined climatologies include: '1991-2020'.")
 
         data = xr.open_zarr(url, consolidated=True)[self._var_name]
     
         # Transform longitudes to [-180, 180]:
         data = _transform_longitudes(data)
 
-        # Extract climatological period:
-        if isinstance(self._bounds, slice):
-            data = _subset_data(data, bounds=self._bounds)
+        # Extract observations for specified time, longitude and latitude bounds:
+        data = _apply_spatial_bounds(data, lon_bounds=self._lon_bounds, lat_bounds=self._lat_bounds)
+        if isinstance(self._time_bounds, slice):
+            data = _apply_time_bounds(data, time_bounds=self._time_bounds)
 
         # Compute climatology:
         if self._freq is not None:
