@@ -44,6 +44,9 @@ ds = xr.open_dataset(ini_fpath, decode_times=False).rename({'icec': 'siconc'})
 # Transform time axis to datetime64:
 ds['time'] = xr.DataArray((np.datetime64('2000-01', 'M') + (np.timedelta64(1, 'M') * np.arange(ds['time'].size))).astype('datetime64[ns]'), dims='time')
 
+# Rechunking for optimal read performance:
+ds = ds.chunk({'time': 12, 'lat': 720, 'lon': 1440})
+
 # Add description attribute:
 ds.attrs['description'] = 'Long-term mean 1991-2020 sea ice concentration from Optimally Interpolated Sea Surface Temperature (OISST) dataset version 2. Downloaded from http://psl.noaa.gov/thredds/dodsC/Datasets/noaa.oisst.v2.highres/icec.mon.ltm.1991-2020.nc on 19/12/2024. Transferred to JASMIN Object Store on 19/12/2024.'
 
@@ -69,6 +72,9 @@ mapper = obj_store.get_mapper(dest)
 ds = xr.open_dataset(ini_fpath, decode_times=False)
 # Transform time axis to datetime64:
 ds['time'] = xr.DataArray((np.datetime64('2000-01', 'M') + (np.timedelta64(1, 'M') * np.arange(ds['time'].size))).astype('datetime64[ns]'), dims='time')
+
+# Rechunking for optimal read performance:
+ds = ds.chunk({'time': 12, 'lat': 720, 'lon': 1440})
 
 # Add description attribute:
 ds.attrs['description'] = 'Long-term mean 1991-2020 sea surface temperature from Optimally Interpolated Sea Surface Temperature (OISST) dataset version 2. Downloaded from http://psl.noaa.gov/thredds/dodsC/Datasets/noaa.oisst.v2.highres/icec.mon.ltm.1991-2020.nc on 19/12/2024. Transferred to JASMIN Object Store on 19/12/2024.'
