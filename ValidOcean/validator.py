@@ -19,7 +19,7 @@ from ValidOcean.data_loader import DataLoader
 from ValidOcean.preprocess import _apply_time_bounds, _compute_climatology
 from ValidOcean.metrics import _compute_agg_stats
 from ValidOcean.regridding import _regrid_data
-from ValidOcean.plotting import _plot_global_2d
+from ValidOcean.plotting import _plot_2D_error
 
 # -- Define ModelValidator Class -- #
 class ModelValidator():
@@ -194,7 +194,7 @@ class ModelValidator():
                           freq : str = 'total',
                           regrid_to : str = 'model',
                           method : str = 'bilinear',
-                          stats : bool = True,
+                          stats : bool = False,
                           ) -> Self:
         """
         Compute error between ocean model output
@@ -221,7 +221,7 @@ class ModelValidator():
         method : str, default: ``bilinear``
             Method used to interpolate model and observed variables onto target grid.
             Options include ``bilinear``, ``nearest``, ``conservative``.
-        stats : bool, default: ``True``
+        stats : bool, default: ``False``
             Return aggregated statistics of (model - observation) error.
             Includes Mean Absolute Error, Mean Square Error & Root Mean Square Error.
 
@@ -252,6 +252,7 @@ class ModelValidator():
             raise TypeError("``stats`` must be specified as a boolean.")
 
         # -- Load Observational Data -- #
+        print(f"Start: {datetime.now()}")
         obs_data = self._load_obs_data(obs_name=obs['name'], var_name=obs['var'], region=obs['region'], time_bounds=time_bounds, freq=freq)
 
         # -- Process Ocean Model Data -- #
@@ -275,6 +276,10 @@ class ModelValidator():
         elif regrid_to == 'obs':
             self.results[f"{var_name}_error"] = mdl_error.rename({'lon':f"lon_{obs['name']}", 'lat':f"lat_{obs['name']}"})
 
+        # -- Store Regridded Data -- #
+        self._obs[f"{var_name}_{obs['name']}"] = obs_data
+        self._results[f"{var_name}"] = mdl_data
+
         # -- Compute Aggregate Statistics -- #
         if stats:
             self.stats = _compute_agg_stats(error=mdl_error)
@@ -289,7 +294,7 @@ class ModelValidator():
                           freq : str = 'total',
                           regrid_to : str = 'model',
                           method : str = 'bilinear',
-                          stats : bool = True,
+                          stats : bool = False,
                           ) -> Self:
         """
         Compute sea surface temperature error between ocean model and observations (model - observation).
@@ -347,8 +352,10 @@ class ModelValidator():
                        regrid_to : str = 'model',
                        method : str = 'bilinear',
                        stats : bool = True,
-                       plt_kwargs : dict = dict(cmap='RdBu_r', vmin=-2, vmax=2),
-                       cbar_kwargs : dict = dict(orientation='horizontal', shrink=0.8)
+                       figsize : tuple = (15, 8),
+                       plt_kwargs : dict = dict(cmap='RdBu_r', vmin=-2.5, vmax=2.5),
+                       cbar_kwargs : dict = dict(orientation='vertical', shrink=0.8),
+                       source_plots : bool = False,
                        ) -> None:
         """
         Plot sea surface temperature error between ocean model and observations (model - observation).
@@ -376,34 +383,42 @@ class ModelValidator():
         stats : bool, default: ``False``
             Return aggregated statistics of (model - observation) error.
             Includes Mean Absolute Error, Mean Square Error & Root Mean Square Error.
+        figsize : tuple, default: (15, 8)
+            Figure size for the plot.
         plt_kwargs : dict, default: ``{'cmap':'RdBu_r', 'vmin':-2, 'vmax':2}``
-            Keyword arguments for matplotlib pcolormesh.
+            Keyword arguments for matplotlib pcolormesh. Only applied to (model - observation)
+            error.
         cbar_kwargs : dict, default: ``{'orientation':'horizontal', 'shrink':0.8}``
-            Keyword arguments for matplotlib colorbar.
-        
+            Keyword arguments for matplotlib colorbar. Only applied to (model - observation)
+            error.
+        source_plots : bool, default: ``False``
+            Plot model, observations and (model - observation) error as separate subplots.
+            This option is only available where climatology frequency ``freq``='total'.
+
         Returns
         -------
         matplotlib Axes
             Matplotlib axes object displaying (model - observation) sea surface temperature error.
         """
         # -- Compute SST Error -- #
-        if f"{sst_name}_error" not in self._results.variables:
-            self._compute_2D_error(var_name=sst_name,
-                                   obs=dict(name=obs_name, region=None, var='sst'),
-                                   time_bounds=time_bounds,
-                                   freq=freq,
-                                   regrid_to=regrid_to,
-                                   method=method,
-                                   stats=stats,
-                                   )
+        self._compute_2D_error(var_name=sst_name,
+                               obs=dict(name=obs_name, region=None, var='sst'),
+                               time_bounds=time_bounds,
+                               freq=freq,
+                               regrid_to=regrid_to,
+                               method=method,
+                               stats=stats,
+                               )
 
         # -- Plot SST Error -- #
-        ax = _plot_global_2d(lon=self._lon,
-                             lat=self._lat,
-                             var=self._results[f"{sst_name}_error"].squeeze(),
-                             plt_kwargs=plt_kwargs,
-                             cbar_kwargs=cbar_kwargs
-                             )
+        ax = _plot_2D_error(mv=self,
+                            obs_name=obs_name,
+                            var_name=sst_name,
+                            figsize=figsize,
+                            plt_kwargs=plt_kwargs,
+                            cbar_kwargs=cbar_kwargs,
+                            source_plots=source_plots
+                            )
         return ax
 
 
