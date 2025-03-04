@@ -99,10 +99,10 @@ def _apply_time_bounds(data : xr.DataArray,
 
 
 def _apply_spatial_bounds(data : xr.DataArray,
-                 lon_bounds : tuple,
-                 lat_bounds : tuple,
-                 is_obs : bool = True,
-                 ) -> xr.DataArray:
+                          lon_bounds : tuple,
+                          lat_bounds : tuple,
+                          is_obs : bool = True,
+                          ) -> xr.DataArray:
     """
     Subset a given xarray DataArray according to the
     specified spatial bounds (lon, lat).

@@ -16,7 +16,7 @@ from typing import Self
 # -- Import utility functions -- #
 import ValidOcean.data_loader as data_loader
 from ValidOcean.data_loader import DataLoader
-from ValidOcean.preprocess import _apply_time_bounds, _compute_climatology
+from ValidOcean.preprocess import _apply_spatial_bounds, _apply_time_bounds, _compute_climatology
 from ValidOcean.statistics import _compute_agg_stats
 from ValidOcean.regridding import _regrid_data
 from ValidOcean.plotting import _plot_2D_error
@@ -375,10 +375,18 @@ class ModelValidator():
                                        freq=freq)
 
         # -- Process Ocean Model Data -- #
+        if obs['region'] is not None:
+            lon_bounds = (np.floor(obs_data['lon'].min()).values, np.ceil(obs_data['lon'].max()).values)
+            lat_bounds = (np.floor(obs_data['lat'].min()).values, np.ceil(obs_data['lat'].max()).values)
+            mdl_data = _apply_spatial_bounds(data=self._data[var_name], 
+                                             lon_bounds=lon_bounds,
+                                             lat_bounds=lat_bounds,
+                                             is_obs=False)
+
         if time_bounds is not None:
             if isinstance(time_bounds, str):
                 time_bounds = slice(time_bounds.split('-')[0], time_bounds.split('-')[1])
-            mdl_data = _apply_time_bounds(data=self._data[var_name], time_bounds=time_bounds, is_obs=False)
+            mdl_data = _apply_time_bounds(data=mdl_data, time_bounds=time_bounds, is_obs=False)
 
         mdl_data = _compute_climatology(data=mdl_data, freq=freq)
 
@@ -472,7 +480,7 @@ class ModelValidator():
                        freq : str = 'total',
                        regrid_to : str = 'model',
                        method : str = 'bilinear',
-                       stats : bool = True,
+                       stats : bool = False,
                        figsize : tuple = (15, 8),
                        plt_kwargs : dict = dict(cmap='RdBu_r', vmin=-2.5, vmax=2.5),
                        cbar_kwargs : dict = dict(orientation='vertical', shrink=0.8),
@@ -507,15 +515,16 @@ class ModelValidator():
             Includes Mean Absolute Error, Mean Square Error & Root Mean Square Error.
         figsize : tuple, default: (15, 8)
             Figure size for the plot.
-        plt_kwargs : dict, default: ``{'cmap':'RdBu_r', 'vmin':-2, 'vmax':2}``
+        plt_kwargs : dict, default: ``{'cmap':'RdBu_r', 'vmin':-2.5, 'vmax':2.5}``
             Keyword arguments for matplotlib pcolormesh. Only applied to (model - observation)
             error.
-        cbar_kwargs : dict, default: ``{'orientation':'horizontal', 'shrink':0.8}``
+        cbar_kwargs : dict, default: ``{'orientation':'vertical', 'shrink':0.8}``
             Keyword arguments for matplotlib colorbar. Only applied to (model - observation)
             error.
         source_plots : bool, default: ``False``
             Plot model, observations and (model - observation) error as separate subplots.
-            This option is only available where climatology frequency ``freq``='total'.
+            This option is only available where climatology frequency ``freq``='total' or
+            ``freq`` is a individual month (e.g., ``jan``).
 
         Returns
         -------
@@ -536,6 +545,152 @@ class ModelValidator():
         ax = _plot_2D_error(mv=self,
                             obs_name=obs_name,
                             var_name=sst_name,
+                            figsize=figsize,
+                            plt_kwargs=plt_kwargs,
+                            cbar_kwargs=cbar_kwargs,
+                            source_plots=source_plots
+                            )
+        return ax
+
+
+    def compute_siconc_error(self,
+                             sic_name : str = 'siconc',
+                             obs_name : str = 'NSIDC',
+                             region : str = 'arctic',
+                             time_bounds : slice | str | None = None,
+                             freq : str = 'mar',
+                             regrid_to : str = 'model',
+                             method : str = 'bilinear',
+                             stats : bool = False,
+                             ) -> Self:
+        """
+        Compute sea ice concentration error between ocean model and observations (model - observation).
+
+        Parameters
+        ----------
+        sic_name : str, default: ``siconc``
+            Name of sea ice concentration variable in ocean model dataset.
+        obs_name : str, default: ``NSIDC``
+            Name of observational dataset.
+            Options include ``NSIDC``, ``OISSTv2`` and ``HadISST``.
+        region : str, default: ``arctic``
+            Polar region of ocean observations dataset to calculate sea ice
+            concentration error. Options are ``arctic`` or ``antarctic``.
+        time_bounds : slice, str, default: ``None``
+            Time bounds to compute sea ice concentration climatologies.
+            Default is ``None`` meaning the entire time series is loaded.
+            Custom bounds should be specified using a slice object. Available
+            pre-defined climatologies can be selected using a string
+            (e.g., "1991-2020").
+        freq : str, default: ``mar``
+            Climatology frequency to compute sea ice concentration error. 
+            Options include ``total``, ``seasonal``, ``monthly``, ``jan``,
+            ``feb``, `mar`` etc. for individual months.
+        regrid_to : str, default: ``model``
+            Regrid data to either ``model`` or observations (``obs``) target grid.
+        method : str, default: ``bilinear``
+            Method used to interpolate model and observed data onto target grid.
+            Options include ``bilinear``, ``nearest``, ``conservative``.
+        stats : bool, default: ``False``
+            Return aggregated statistics of (model - observation) error.
+            Includes Mean Absolute Error, Mean Square Error & Root Mean Square Error.
+
+        Returns
+        -------
+        ModelValidator
+            ModelValidator object including (ocean model - observation) sea ice concentration
+            error, stored in the ``results`` attribute and aggregate statistics stored in the
+            ``stats`` attribute.
+        """
+        # -- Compute SIC Error -- #
+        self._compute_2D_error(var_name=sic_name,
+                               obs=dict(name=obs_name, region=region, var='siconc'),
+                               time_bounds=time_bounds,
+                               freq=freq,
+                               regrid_to=regrid_to,
+                               method=method,
+                               stats=stats,
+                               )
+
+        return self
+
+
+    def plot_siconc_error(self,
+                          sic_name : str = 'siconc',
+                          obs_name : str = 'NSIDC',
+                          region : str = 'arctic',
+                          time_bounds : slice | str | None = None,
+                          freq : str = 'mar',
+                          regrid_to : str = 'model',
+                          method : str = 'bilinear',
+                          stats : bool = False,
+                          figsize : tuple = (15, 8),
+                          plt_kwargs : dict = dict(cmap='RdBu_r', vmin=-0.5, vmax=0.5),
+                          cbar_kwargs : dict = dict(orientation='vertical', shrink=0.8),
+                          source_plots : bool = False,
+                          ) -> None:
+        """
+        Plot sea ice concentration error between ocean model and observations (model - observation).
+
+        Parameters
+        ----------
+        sic_name : str, default: ``siconc``
+            Name of sea ice concentration variable in model dataset.
+        obs_name : str, default: ``NSIDC``
+            Name of observational dataset.
+            Options include ``NSIDC``, ``OISSTv2`` and ``HadISST``.
+        region : str, default: ``arctic``
+            Polar region of ocean observations dataset to calculate sea ice
+            concentration error. Options are ``arctic`` or ``antarctic``.
+        time_bounds : slice, str, default: ``None``
+            Time bounds to compute sea ice concentration climatologies. Default is ``None``
+            meaning the entire time series is loaded. Custom bounds should be specified using
+            a slice object. Available pre-defined climatologies can be selected using a
+            string (e.g., "1991-2020").
+        freq : str, default: ``mar``
+            Climatology frequency to compute sea ice concentration error.
+            Options include ``total``, ``seasonal``, ``monthly``, ``jan``,
+            ``feb``, `mar`` etc. for individual months.
+        regrid_to : str, default: ``model``
+            Regrid data to either ``model`` or observations (``obs``) target grid.
+        method : str, default: ``bilinear``
+            Method used to interpolate model and observed data onto target grid.
+            Options include ``bilinear``, ``nearest``, ``conservative``.
+        stats : bool, default: ``False``
+            Return aggregated statistics of (model - observation) error.
+            Includes Mean Absolute Error, Mean Square Error & Root Mean Square Error.
+        figsize : tuple, default: (15, 8)
+            Figure size for the plot.
+        plt_kwargs : dict, default: ``{'cmap':'RdBu_r', 'vmin':-0.5, 'vmax':0.5}``
+            Keyword arguments for matplotlib pcolormesh. Only applied to (model - observation)
+            error.
+        cbar_kwargs : dict, default: ``{'orientation':'vertical', 'shrink':0.8}``
+            Keyword arguments for matplotlib colorbar. Only applied to (model - observation)
+            error.
+        source_plots : bool, default: ``False``
+            Plot model, observations and (model - observation) error as separate subplots.
+            This option is only available where climatology frequency ``freq``='total' or
+            ``freq`` is a individual month (e.g., ``jan``).
+
+        Returns
+        -------
+        matplotlib Axes
+            Matplotlib axes object displaying (model - observation) sea ice concentration error.
+        """
+        # -- Compute SIC Error -- #
+        self._compute_2D_error(var_name=sic_name,
+                               obs=dict(name=obs_name, region=region, var='siconc'),
+                               time_bounds=time_bounds,
+                               freq=freq,
+                               regrid_to=regrid_to,
+                               method=method,
+                               stats=stats,
+                               )
+
+        # -- Plot SIC Error -- #
+        ax = _plot_2D_error(mv=self,
+                            obs_name=obs_name,
+                            var_name=sic_name,
                             figsize=figsize,
                             plt_kwargs=plt_kwargs,
                             cbar_kwargs=cbar_kwargs,
