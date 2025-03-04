@@ -40,6 +40,8 @@ ds = xr.open_dataset(ini_fpath)
 
 # Assign 2-dimensional lon/lat coordinates:
 ds = ds.assign_coords(lon = ds.longitude, lat = ds.latitude)
+# Transform sea ice concentration from percentage to fraction:
+ds['siconc'] = ds['siconc'] / 100
 
 # Rechunk for optimal read performance:
 ds = ds.chunk({'time': 12, 'x': ds['x'].size, 'y': ds['y'].size})
@@ -69,6 +71,8 @@ ds = xr.open_dataset(ini_fpath)
 
 # Assign 2-dimensional lon/lat coordinates:
 ds = ds.assign_coords(lon = ds.longitude, lat = ds.latitude)
+# Transform sea ice concentration from percentage to fraction:
+ds['siconc'] = ds['siconc'] / 100
 
 # Rechunk for optimal read performance:
 ds = ds.chunk({'time': 12, 'x': ds['x'].size, 'y': ds['y'].size})
