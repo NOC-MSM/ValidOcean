@@ -92,7 +92,7 @@ def _plot_2D_error(mv,
 
             _plot_global_2d(axs[0], mv._lon, mv._lat, mv._results[var_name], cbar_label=f"Model")
 
-            _plot_global_2d(axs[1], mv._lon, mv._lat, mv._obs[f"{var_name}_{obs_name}"], cbar_label=f"Observations")
+            _plot_global_2d(axs[1], mv._lon, mv._lat, mv._obs[f"{var_name}_{obs_name.lower()}"], cbar_label=f"Observations")
 
             _plot_global_2d(axs[2], mv._lon, mv._lat, mv._results[f"{var_name}_error"].squeeze(), plt_kwargs=plt_kwargs, cbar_kwargs=cbar_kwargs, cbar_label=f"(Model - Obs.) Error")
 
