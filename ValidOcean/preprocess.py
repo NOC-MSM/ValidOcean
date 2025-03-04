@@ -142,24 +142,32 @@ def _apply_spatial_bounds(data : xr.DataArray,
         raise ValueError("``lat_bounds`` must be within the range (-90, 90).")
     if not isinstance(is_obs, bool):
         raise TypeError("``is_obs`` flag must be a boolean.")
+
+    # -- Loading Coordinates -- #
+    if (data.lon.chunks is not None) or (data.lat.chunks is not None):
+        lon = data['lon'].load()
+        lat = data['lat'].load()
+    else:
+        lon = data['lon']
+        lat = data['lat']
     
-    #  -- Raise Warning if Bounds Outside Domain -- #
-    if ((lon_bounds[0] < np.floor(data.lon.min())) or
-        (lon_bounds[1] > np.ceil(data.lon.max())) or
-        (lat_bounds[0] < np.floor(data.lat.min())) or
-        (lat_bounds[1] > np.ceil(data.lat.max()))
+    # -- Raise Warning if Bounds Outside Domain -- #
+    if ((lon_bounds[0] < np.floor(lon.min())) or
+        (lon_bounds[1] > np.ceil(lon.max())) or
+        (lat_bounds[0] < np.floor(lat.min())) or
+        (lat_bounds[1] > np.ceil(lat.max()))
         ):
         if is_obs:
             data_type = 'observations'
         else:
             data_type = 'model'
 
-        warning_message = f"longitude: {lon_bounds[0]} - {lon_bounds[1]}, latitude: {lat_bounds[0]} - {lat_bounds[1]} bounds are outside the range of available {data_type} data [longitude:{data.lon.min().values.astype(float)} - {data.lon.max().values.astype(float)}, latitude:{data.lat.min().values.astype(float)} - {data.lat.max().values.astype(float)}]."
+        warning_message = f"[longitude: {lon_bounds[0].values.astype(float)}, {lon_bounds[1].values.astype(float)}; latitude: {lat_bounds[0].values.astype(float)}, {lat_bounds[1].values.astype(float)}] bounds are outside the range of available {data_type} data [longitude: {data.lon.min().values.astype(float)}, {lon.max().values.astype(float)}; latitude: {lat.min().values.astype(float)}, {lat.max().values.astype(float)}]."
         warnings.warn(warning_message, RuntimeWarning)
     
     # -- Subset Data -- #
-    data = data.where((data.lon >= lon_bounds[0]) & (data.lon <= lon_bounds[1]) &
-                      (data.lat >= lat_bounds[0]) & (data.lat <= lat_bounds[1]),
+    data = data.where((lon >= lon_bounds[0]) & (lon <= lon_bounds[1]) &
+                      (lat >= lat_bounds[0]) & (lat <= lat_bounds[1]),
                       drop=True)
 
     return data
