@@ -156,8 +156,9 @@ class ModelValidator():
             Default is ``None`` meaning the entire latitude range is loaded.
         freq : str, default: ``None``
             Climatology frequency of the observational dataset.
-            Options include ``None``, ``total``, ``seasonal``, ``monthly``.
-            Default is ``None`` meaning the entire time series is loaded.
+            Options include ``total``, ``seasonal``, ``monthly``,
+            ``jan``, ``feb``, `mar`` etc. Default is ``None``
+            meaning the entire time series is loaded.
         
         Returns
         -------
@@ -260,7 +261,7 @@ class ModelValidator():
             Name of variable to add to Dataset.
         obs_name: str | None, default=None
             Name of ocean observations if DataArray is defined
-            on obs. grid. Default is None, meaning DataArray
+            on obs. grid. Default is ``None`` meaning DataArray
             is defined on ocean model grid.
 
         Returns:
@@ -326,8 +327,9 @@ class ModelValidator():
             pre-defined climatologies can be selected using a string
             (e.g., "1991-2020").
         freq : str, default: ``total``
-            Frequency to calculate ocean model error. 
-            Options include ``total``, ``seasonal``, ``monthly``.
+            Climatology frequency to calculate model error. 
+            Options include ``total``, ``seasonal``, ``monthly``,
+            ``jan``, ``feb``, `mar`` etc. for individual months.
         regrid_to : str, default: ``model``
             Regrid data to match either ``model`` or ``obs`` grid.
         method : str, default: ``bilinear``
@@ -432,7 +434,8 @@ class ModelValidator():
             (e.g., "1991-2020").
         freq : str, default: ``total``
             Climatology frequency to compute sea surface temperature error. 
-            Options include ``total``, ``seasonal``, ``monthly``.
+            Options include ``total``, ``seasonal``, ``monthly``, ``jan``,
+            ``feb``, `mar`` etc. for individual months.
         regrid_to : str, default: ``model``
             Regrid data to either ``model`` or observations (``obs``) target grid.
         method : str, default: ``bilinear``
@@ -492,7 +495,8 @@ class ModelValidator():
             string (e.g., "1991-2020").
         freq : str, default: ``total``
             Climatology frequency to compute sea surface temperature error.
-            Options include ``total``, ``seasonal``, ``monthly``.
+            Options include ``total``, ``seasonal``, ``monthly``, ``jan``,
+            ``feb``, `mar`` etc. for individual months.
         regrid_to : str, default: ``model``
             Regrid data to either ``model`` or observations (``obs``) target grid.
         method : str, default: ``bilinear``
@@ -575,7 +579,8 @@ class ModelValidator():
             Default is ``None`` meaning the entire latitude range is loaded.
         freq : str, default: ``None``
             Climatology frequency of the observational dataset.
-            Options include ``None``, ``total``, ``seasonal``, ``monthly``.
+            Options include ``None``, ``total``, ``seasonal``, ``monthly``,
+            ``jan``, ``feb``, `mar`` etc. for individual months.
             Default is ``None`` meaning the entire time series is loaded.
         
         Returns

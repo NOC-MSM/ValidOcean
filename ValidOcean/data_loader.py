@@ -103,8 +103,6 @@ class DataLoader(abc.ABC):
         if freq is not None:
             if not isinstance(freq, str):
                 raise TypeError("``freq`` must be a specfied as a string.")
-            if freq not in ['total', 'seasonal', 'monthly']:
-                raise ValueError("``freq`` must be one of 'total', 'seasonal', 'monthly'.")
         
         # -- Class Attributes -- #
         self._var_name = var_name
@@ -162,8 +160,9 @@ class OISSTv2Loader(DataLoader):
         Default is ``None``, meaning the entire latitude range is loaded.
     freq : str, default: ``None``
         Climatology frequency of the OISSTv2 ocean observations.
-        Options include ``None``, ``total``, ``seasonal``, ``monthly``.
-        ``None`` means no climatology is computed from monthly data.
+        Options include ``None``, ``total``, ``seasonal``, ``monthly``,
+        ``jan``, ``feb`` etc. for individual months. Default is``None``
+        meaning no climatology is computed from monthly data.
     """
     def __init__(self,
                  var_name: str = 'sst',
@@ -245,18 +244,27 @@ class NSIDCLoader(DataLoader):
     region : str, default: ``arctic``
         Region of NSIDC observations dataset to load.
         Options include ``arctic``, ``antarctic``.
-    bounds : slice, str, default: None
-        Time bounds to compute climatology using NSIDC ocean observations.
-        Default is None, meaning the entire dataset is considered.
+    time_bounds : slice, str, default: None
+        Time bounds to compute climatology using NSIDC sea ice observations.
+        Default is ``None``, meaning the entire dataset is considered.
+    lon_bounds : tuple, default: None
+        Longitude bounds to extract from NSIDC sea ice observations.
+        Default is ``None``, meaning the entire longitude range is loaded.
+    lat_bounds : tuple, default: None
+        Latitude bounds to extract from NSIDC sea ice observations.
+        Default is ``None``, meaning the entire latitude range is loaded.
     freq : str, default: ``total``
         Climatology frequency of the NSIDC ocean observations.
-        Options include ``None``, ``total``, ``seasonal``, ``monthly``.
-        ``None`` means no climatology is computed from monthly data.
+        Options include ``None``, ``total``, ``seasonal``, ``monthly``
+        , ``jan``, ``feb`` etc. for individual months. Default is
+        ``None`` meaning no climatology is computed from monthly data.
     """
     def __init__(self,
                  var_name: str,
                  region: str = 'arctic',
-                 bounds: slice | str | None = None,
+                 time_bounds: slice | str | None = None,
+                 lon_bounds: tuple | None = None,
+                 lat_bounds: tuple | None = None,
                  freq: str = 'total'
                  ):
         # -- Verify Inputs -- #
@@ -273,7 +281,9 @@ class NSIDCLoader(DataLoader):
         super().__init__(var_name=var_name,
                          source='jasmin-os',
                          region=region,
-                         bounds=bounds,
+                         time_bounds=time_bounds,
+                         lon_bounds=lon_bounds,
+                         lat_bounds=lat_bounds,
                          freq=freq)
 
     def _load_data(self) -> xr.DataArray:
@@ -289,11 +299,15 @@ class NSIDCLoader(DataLoader):
         """
         # Load data from the JASMIN Object Store:
         if self._region == "arctic":
-            url = f"{self._source}/npd-obs/NSIDC/NSIDC_Sea_Ice_Index_v3_Arctic_1978_2025/"
+            url = f"{self._source}/NSIDC/NSIDC_Sea_Ice_Index_v3_Arctic_1978_2025/"
         elif self._freq == "antarctic":
-            url = f"{self._source}/npd-obs/NSIDC/NSIDC_Sea_Ice_Index_v3_Antarctic_1978_2025/"
+            url = f"{self._source}/NSIDC/NSIDC_Sea_Ice_Index_v3_Antarctic_1978_2025/"
 
         data = xr.open_zarr(url, consolidated=True)[self._var_name]
+
+        # Extract observations for specified time bounds:
+        if isinstance(self._time_bounds, slice):
+            data = _apply_time_bounds(data, time_bounds=self._time_bounds)
 
         # Compute climatology:
         if self._freq is not None:

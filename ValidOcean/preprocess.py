@@ -178,8 +178,9 @@ def _compute_climatology(data: xr.DataArray,
         DataArray containing the variable to compute the
         climatology from.
     freq : str, default: ``total``
-        Climatology frequency to compute. Options include
-        ``total``, ``seasonal``, ``monthly``.
+        Climatology frequency to compute.
+        Options include ``total``, ``seasonal``, ``monthly``,
+        ``jan``, ``feb``, `mar`` etc. for individual months.
 
     Returns
     -------
@@ -195,10 +196,16 @@ def _compute_climatology(data: xr.DataArray,
     if not np.issubdtype(data.time.dtype, np.datetime64):
         raise TypeError("variable ``time`` dtype must be datetime64.")
 
+    # Define climatology frequencies:
+    month_names = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+    months = {key: value for key, value in zip(month_names, range(1, 13))}
+    freq_names = ['total', 'seasonal', 'monthly']
+    freq_names.extend(month_names)
+
     if not isinstance(freq, str):
         raise TypeError("``freq`` must be a string.")
-    if freq not in ['total', 'seasonal', 'monthly']:
-        raise ValueError("``freq`` must be one of 'total', 'seasonal', 'monthly'.")
+    if freq not in freq_names:
+        raise ValueError("``freq`` must be one of 'total', 'seasonal', 'monthly', 'jan' ... 'dec'.")
 
     # -- Compute Climatology -- #
     if freq == 'total':
@@ -207,5 +214,7 @@ def _compute_climatology(data: xr.DataArray,
         data = data.groupby('time.season').mean()
     elif freq == 'monthly':
         data = data.groupby('time.month').mean()
+    else:
+        data = data.sel(time=data['time'].dt.month.isin(months[freq])).mean(dim='time')
 
     return data
