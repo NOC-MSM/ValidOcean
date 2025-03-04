@@ -17,7 +17,7 @@ from typing import Self
 import ValidOcean.data_loader as data_loader
 from ValidOcean.data_loader import DataLoader
 from ValidOcean.preprocess import _apply_time_bounds, _compute_climatology
-from ValidOcean.metrics import _compute_agg_stats
+from ValidOcean.statistics import _compute_agg_stats
 from ValidOcean.regridding import _regrid_data
 from ValidOcean.plotting import _plot_2D_error
 
@@ -85,7 +85,7 @@ class ModelValidator():
         self._dataloader = dataloader
         self._obs = xr.Dataset()
         self._results = xr.Dataset()
-        self._stats = {}
+        self._stats = xr.Dataset()
 
     # -- Class Properties -- #
     @property
@@ -110,10 +110,10 @@ class ModelValidator():
         self._results = value
 
     @property
-    def stats(self) -> dict:
+    def stats(self) -> xr.Dataset:
         return self._stats
     @stats.setter
-    def stats(self, value: dict) -> None:
+    def stats(self, value: xr.Dataset) -> None:
         self._stats = value
 
     # -- Class Methods -- #
