@@ -37,6 +37,10 @@ mapper = obj_store.get_mapper(dest)
 
 # -- Import & Processing: Add metadata attributes -- #
 ds = xr.open_dataset(ini_fpath)
+
+# Rechunk for optimal read performance:
+ds = ds.chunk({'time': 12, 'x': ds['x'].size, 'y': ds['y'].size})
+
 # Add description attribute:
 ds.attrs['description'] = 'National Snow & Ice Data Centre (NSIDC) Sea Ice Index version 3: Arctic sea ice extent, concentration and total sea ice area (computed) data downloaded from https://doi.org/10.7265/N5K072F8 on 21/02/2025. Transferred to JASMIN Object Store on 21/02/2025.'
 
@@ -59,6 +63,10 @@ mapper = obj_store.get_mapper(dest)
 
 # -- Import & Processing: Add metadata attributes -- #
 ds = xr.open_dataset(ini_fpath)
+
+# Rechunk for optimal read performance:
+ds = ds.chunk({'time': 12, 'x': ds['x'].size, 'y': ds['y'].size})
+
 # Add description attribute:
 ds.attrs['description'] = 'National Snow & Ice Data Centre (NSIDC) Sea Ice Index version 3: Antarctic sea ice extent, concentration and total sea ice area (computed) data downloaded from https://doi.org/10.7265/N5K072F8 on 21/02/2025. Transferred to JASMIN Object Store on 21/02/2025.'
 
