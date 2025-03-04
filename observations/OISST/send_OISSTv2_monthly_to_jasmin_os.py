@@ -42,6 +42,9 @@ mapper = obj_store.get_mapper(dest)
 # -- Import & Processing: Add metadata attributes -- #
 ds = xr.open_dataset(ini_fpath, decode_times=True)
 
+# Rechunking for optimal read performance:
+ds = ds.chunk({'time': 12, 'lat': 720, 'lon': 1440})
+
 # Add description attribute:
 ds.attrs['description'] = 'Monthly mean 1991-2020 sea surface temperature from Optimally Interpolated Sea Surface Temperature (OISST) dataset version 2. Downloaded from https://psl.noaa.gov/thredds/fileServer/Datasets/noaa.oisst.v2.highres/sst.mon.mean.nc on 24/02/2025. Transferred to JASMIN Object Store on 24/02/2025.'
 
@@ -66,6 +69,9 @@ mapper = obj_store.get_mapper(dest)
 
 # -- Import & Processing: Add metadata attributes -- #
 ds = xr.open_dataset(ini_fpath, decode_times=True).rename({'icec':'siconc'})
+
+# Rechunking for optimal read performance:
+ds = ds.chunk({'time': 12, 'lat': 720, 'lon': 1440})
 
 # Add description attribute:
 ds.attrs['description'] = 'Monthly mean 1991-2020 sea ice concentration from Optimally Interpolated Sea Surface Temperature (OISST) dataset version 2. Downloaded from https://psl.noaa.gov/thredds/fileServer/Datasets/noaa.oisst.v2.highres/icec.mon.mean.nc on 24/02/2025. Transferred to JASMIN Object Store on 24/02/2025.'
