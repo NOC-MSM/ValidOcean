@@ -305,12 +305,13 @@ class NSIDCLoader(DataLoader):
 
         data = xr.open_zarr(url, consolidated=True)[self._var_name]
 
-        # Extract observations for specified time bounds:
+        # Extract observations for specified time, longitude and latitude bounds:
+        data = _apply_spatial_bounds(data, lon_bounds=self._lon_bounds, lat_bounds=self._lat_bounds)
         if isinstance(self._time_bounds, slice):
             data = _apply_time_bounds(data, time_bounds=self._time_bounds)
 
         # Compute climatology:
         if self._freq is not None:
-            data = _compute_climatology(data, bounds=self._bounds, freq=self._freq)
+            data = _compute_climatology(data, freq=self._freq)
 
         return data
