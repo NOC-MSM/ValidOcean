@@ -38,6 +38,9 @@ mapper = obj_store.get_mapper(dest)
 # -- Import & Processing: Add metadata attributes -- #
 ds = xr.open_dataset(ini_fpath)
 
+# Assign 2-dimensional lon/lat coordinates:
+ds = ds.assign_coords(lon = ds.longitude, lat = ds.latitude)
+
 # Rechunk for optimal read performance:
 ds = ds.chunk({'time': 12, 'x': ds['x'].size, 'y': ds['y'].size})
 
@@ -63,6 +66,9 @@ mapper = obj_store.get_mapper(dest)
 
 # -- Import & Processing: Add metadata attributes -- #
 ds = xr.open_dataset(ini_fpath)
+
+# Assign 2-dimensional lon/lat coordinates:
+ds = ds.assign_coords(lon = ds.longitude, lat = ds.latitude)
 
 # Rechunk for optimal read performance:
 ds = ds.chunk({'time': 12, 'x': ds['x'].size, 'y': ds['y'].size})
