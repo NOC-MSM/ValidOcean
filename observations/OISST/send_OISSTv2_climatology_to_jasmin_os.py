@@ -42,7 +42,7 @@ mapper = obj_store.get_mapper(dest)
 # -- Import & Processing: Add metadata attributes -- #
 ds = xr.open_dataset(ini_fpath, decode_times=False).rename({'icec': 'siconc'})
 # Transform time axis to datetime64:
-ds['time'] = xr.DataArray((np.datetime64('2000-01', 'M') + (np.timedelta64(1, 'M') * np.arange(ds['time'].size))).astype('datetime64[ns]'), dims='time')
+ds['time'] = xr.DataArray((np.datetime64('2010-01', 'M') + (np.timedelta64(1, 'M') * np.arange(ds['time'].size))).astype('datetime64[ns]'), dims='time')
 
 # Rechunking for optimal read performance:
 ds = ds.chunk({'time': 12, 'lat': 720, 'lon': 1440})
@@ -71,7 +71,7 @@ mapper = obj_store.get_mapper(dest)
 # -- Import & Processing: Add metadata attributes -- #
 ds = xr.open_dataset(ini_fpath, decode_times=False)
 # Transform time axis to datetime64:
-ds['time'] = xr.DataArray((np.datetime64('2000-01', 'M') + (np.timedelta64(1, 'M') * np.arange(ds['time'].size))).astype('datetime64[ns]'), dims='time')
+ds['time'] = xr.DataArray((np.datetime64('2010-01', 'M') + (np.timedelta64(1, 'M') * np.arange(ds['time'].size))).astype('datetime64[ns]'), dims='time')
 
 # Rechunking for optimal read performance:
 ds = ds.chunk({'time': 12, 'lat': 720, 'lon': 1440})
