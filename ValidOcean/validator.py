@@ -122,7 +122,7 @@ class ModelValidator():
                        lon_bounds : tuple | None = None,
                        lat_bounds : tuple | None = None,
                        freq : str | None = None,
-                       ) -> Self:
+                       ) -> xr.DataArray:
         """
         Load ocean observations dataset.
 
@@ -154,9 +154,8 @@ class ModelValidator():
         
         Returns
         -------
-        ModelValidator
-            ModelValidator object including observational data stored in ``obs``
-            attribute.
+        xarray DataArray
+            xarray DataArray containing ocean observations.
         """
         # -- Verify Inputs -- #
         if not isinstance(obs_name, str):
@@ -185,6 +184,112 @@ class ModelValidator():
                                         )._load_data()
 
         return obs_data
+
+
+    def _update_obs(self,
+                    da: xr.DataArray,
+                    var_name: str,
+                    obs_name: str
+                    ) -> Self:
+        """
+        Update ocean observations attribute with a new DataArray.
+        
+        Parameters:
+        -----------
+        da: xr.DataArray
+            Ocean observations DataArray to add to the Dataset.
+        var_name: str
+            Name of variable to add to Dataset.
+        obs_name: str
+            Name of ocean observations.
+
+        Returns:
+        --------
+        ModelValidator
+            ModelValidator with updated obs attribute.
+        """
+        # -- Verify Inputs -- #
+        if not isinstance(da, xr.DataArray):
+            raise TypeError("``da`` must be specified as an xarray DataArray.")
+        if not isinstance(var_name, str):
+            raise TypeError("``var_name`` must be specified as a string.")
+        if not isinstance(obs_name, str):
+            raise TypeError("``obs_name`` must be specified as a string.")
+
+        # Update ocean observations coords:
+        coords = [crd for crd in da.coords]
+        new_coords = {key: value for key, value in zip(coords, [f"{crd}_{obs_name}" for crd in coords])}
+        da = da.rename(new_coords)
+
+        # Remove any existing DataArray & coords:
+        if f"{var_name}_{obs_name}" in self._obs.data_vars:
+            names = [crd for crd in self._obs[f"{var_name}_{obs_name}"].coords]
+            names.append(f"{var_name}_{obs_name}")
+            self._obs = self._obs.drop_vars(names=names)
+
+        self._obs[f"{var_name}_{obs_name}"] = da
+
+        # Remove redundant coords:
+        coord_names = [self._obs[var].coords for var in self._obs.data_vars]
+        coord_names = set([item for sublist in coord_names for item in sublist]) ^ set(self._obs.coords)
+        self._obs = self._obs.drop_vars(names=coord_names)
+
+        return self
+
+
+    def _update_results(self,
+                        da: xr.DataArray,
+                        var_name: str,
+                        obs_name: str | None = None
+                        ) -> Self:
+        """
+        Update model validation results attribute with a new DataArray.
+        
+        Parameters:
+        -----------
+        da: xr.DataArray
+            Ocean model DataArray to add to the Dataset.
+        var_name: str
+            Name of variable to add to Dataset.
+        obs_name: str | None, default=None
+            Name of ocean observations if DataArray is defined
+            on obs. grid. Default is None, meaning DataArray
+            is defined on ocean model grid.
+
+        Returns:
+        --------
+            ModelValidator
+                ModelValidator with updated results attribute.
+        """
+        # -- Verify Inputs -- #
+        if not isinstance(da, xr.DataArray):
+            raise TypeError("``da`` must be specified as an xarray DataArray.")
+        if not isinstance(var_name, str):
+            raise TypeError("``var_name`` must be specified as a string.")
+        if obs_name is not None:
+            if not isinstance(obs_name, str):
+                raise TypeError("``obs_name`` must be specified as a string.")
+
+        # Update DataArray coords if regridded to obs:
+        if obs_name is not None:
+            coords = [crd for crd in da.coords if crd != 'obs']
+            new_coords = {key: value for key, value in zip(coords, [f"{crd}_{obs_name}" for crd in coords])}
+            da = da.rename(new_coords)
+
+        # Remove existing DataArray & coords from this source:
+        if f"{var_name}" in self._results.data_vars:
+            names = [crd for crd in self._results[var_name].coords]
+            names.append(var_name)
+            self._results = self._results.drop_vars(names=names)
+
+        self._results[var_name] = da
+
+        # Remove redundant coords:
+        coord_names = [self._results[var].coords for var in self._results.data_vars]
+        coord_names = set([item for sublist in coord_names for item in sublist]) ^ set(self._results.coords)
+        self._results = self._results.drop_vars(names=coord_names)
+
+        return self
 
 
     def _compute_2D_error(self,
@@ -252,7 +357,6 @@ class ModelValidator():
             raise TypeError("``stats`` must be specified as a boolean.")
 
         # -- Load Observational Data -- #
-        print(f"Start: {datetime.now()}")
         obs_data = self._load_obs_data(obs_name=obs['name'], var_name=obs['var'], region=obs['region'], time_bounds=time_bounds, freq=freq)
 
         # -- Process Ocean Model Data -- #
@@ -269,16 +373,17 @@ class ModelValidator():
         elif regrid_to == 'obs':
             mdl_data = _regrid_data(source_grid=mdl_data, target_grid=obs_data, method=method)
         
-        # -- Compute Error -- #
+        # -- Compute & Store Error -- #
         mdl_error = (mdl_data - obs_data).expand_dims(dim={'obs': np.array([obs['name']])}, axis=0)
         if regrid_to == 'model':
-            self.results[f"{var_name}_error"] = mdl_error
+            self._update_results(da=mdl_error, var_name=f"{var_name}_error", obs_name=None)
+            self._update_results(da=mdl_data, var_name=var_name, obs_name=None)
         elif regrid_to == 'obs':
-            self.results[f"{var_name}_error"] = mdl_error.rename({'lon':f"lon_{obs['name']}", 'lat':f"lat_{obs['name']}"})
+            self._update_results(da=mdl_error, var_name=f"{var_name}_error", obs_name=obs['name'].lower())
+            self._update_results(da=mdl_data, var_name=var_name, obs_name=obs['name'].lower())
 
-        # -- Store Regridded Data -- #
-        self._obs[f"{var_name}_{obs['name']}"] = obs_data
-        self._results[f"{var_name}"] = mdl_data
+        # -- Store Ocean Observations Data -- #
+        self._update_obs(da=obs_data, var_name=var_name, obs_name=obs['name'].lower())
 
         # -- Compute Aggregate Statistics -- #
         if stats:
@@ -476,12 +581,7 @@ class ModelValidator():
                                        freq=freq
                                        )
 
-        # -- Store Observational Data -- #
-        self._obs[f"{var_name}_{obs_name}"] = obs_data.rename({'lon':f"lon_{obs_name}", 'lat':f"lat_{obs_name}"})
-
-        # -- Remove Redundant Coordinates -- #
-        coord_names = [self._obs[var].coords for var in self._obs.data_vars]
-        coord_names = set([item for sublist in coord_names for item in sublist]) ^ set(self._obs.coords)
-        self._obs = self._obs.drop_vars(names=coord_names)
+        # -- Update Observational Data -- #
+        self._update_obs(da=obs_data, var_name=var_name, obs_name=obs_name.lower())
 
         return self
