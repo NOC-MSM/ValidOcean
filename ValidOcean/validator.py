@@ -29,7 +29,7 @@ class ModelValidator():
 
     Parameters
     ----------
-    mdl_data : xarray.Dataset
+    mdl_data : xarray.Dataset, default: None
         xarray Dataset containing ocean model output data. 
         Coordinates of model grid cell centres must be specified
         with names: (``lon``, ``lat``). Mask variable must be specified
@@ -49,38 +49,43 @@ class ModelValidator():
     stats : xarray.Dataset
         xarray Dataset containing model validation statistics.
     """
-    def __init__(self, mdl_data : xr.Dataset, dataloader : DataLoader | None = None):
+    def __init__(self, mdl_data : xr.Dataset | None = None, dataloader : DataLoader | None = None):
         # -- Verify Inputs -- #
-        if not isinstance(mdl_data, xr.Dataset):
-            raise TypeError("``mdl_data`` must be specified as an xarray Dataset.")
+        if mdl_data is not None:
+            if not isinstance(mdl_data, xr.Dataset):
+                raise TypeError("``mdl_data`` must be specified as an xarray Dataset.")
         if dataloader is not None:
             if not isinstance(dataloader, DataLoader):
                 raise TypeError("Custom ``dataloader`` must be a DataLoader object.")
 
         # -- Verify Domain Attributes -- #
-        if 'time' not in mdl_data.dims:
-            raise ValueError("dimension ``time`` must be included in model dataset.")
-        if 'mask' not in mdl_data.variables:
-            raise ValueError("``mask`` variable must be included in model dataset.")
-        if 'lon' not in mdl_data.variables:
-            raise ValueError("``lon`` coordinates of model grid cell centres must be included in model dataset.")
-        if 'lat' not in mdl_data.variables:
-            raise ValueError("``lat`` coordinates of model grid cell centres must be included in model dataset.")
+        if mdl_data is not None:
+            if 'time' not in mdl_data.dims:
+                raise ValueError("dimension ``time`` must be included in model dataset.")
+            if 'mask' not in mdl_data.variables:
+                raise ValueError("``mask`` variable must be included in model dataset.")
+            if 'lon' not in mdl_data.variables:
+                raise ValueError("``lon`` coordinates of model grid cell centres must be included in model dataset.")
+            if 'lat' not in mdl_data.variables:
+                raise ValueError("``lat`` coordinates of model grid cell centres must be included in model dataset.")
 
         # -- Class Attributes -- #
-        self._data = mdl_data
+        if mdl_data is not None:
+            self._data = mdl_data
+            self._lon = self._data['lon'].squeeze()
+            self._lat = self._data['lat'].squeeze()
+            # Model domain bounds rounded to nearest largest integer:
+            self._lon_bounds = (np.floor(self._lon.min()), np.ceil(self._lon.max()))
+            self._lat_bounds = (np.floor(self._lat.min()), np.ceil(self._lat.max()))
+            if self._lon_bounds[0] >= 0:
+                raise ValueError("``lon`` bounds must be within [-180, 180].")
+        else:
+            self._data = xr.Dataset()
+
         self._dataloader = dataloader
         self._obs = xr.Dataset()
         self._results = xr.Dataset()
         self._stats = {}
-
-        self._lon = self._data['lon'].squeeze()
-        self._lat = self._data['lat'].squeeze()
-        # Model domain bounds rounded to nearest largest integer:
-        self._lon_bounds = (np.floor(self._lon.min()), np.ceil(self._lon.max()))
-        self._lat_bounds = (np.floor(self._lat.min()), np.ceil(self._lat.max()))
-        if self._lon_bounds[0] >= 0:
-            raise ValueError("``lon`` bounds must be within [-180, 180].")
 
     # -- Class Properties -- #
     @property
@@ -367,7 +372,6 @@ class ModelValidator():
                                        lat_bounds=self._lat_bounds,
                                        freq=freq)
 
-        print(obs_data)
         # -- Process Ocean Model Data -- #
         if time_bounds is not None:
             if isinstance(time_bounds, str):
