@@ -43,6 +43,10 @@ for n, file in tqdm(enumerate(files)):
 
     # -- Import & Processing: Add metadata attributes -- #
     ds = xr.open_dataset(file).rename({'lon': 'longitude', 'lat': 'latitude'})
+
+    # Rechunk for optimal read performance:
+    ds = ds.chunk({'time': 1, 'depth': ds['depth'].size, 'latitude': ds['latitude'].size, 'longitude': ds['longitude'].size})
+
     # Add description attribute:
     ds.attrs['description'] = 'Met Office Hadley Centre EN4.2.2 objective analyses - Gouretski and Reseghetti (2010) XBT corrections and Gouretski and Cheng (2020) MBT corrections. Downloaded from https://www.metoffice.gov.uk/hadobs/en4/download-en4-2-2.html on 17-19/12/2024. Transferred to JASMIN Object Store on 19/12/2024.'
 
