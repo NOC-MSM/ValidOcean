@@ -79,6 +79,8 @@ class ModelValidator():
         # Model domain bounds rounded to nearest largest integer:
         self._lon_bounds = (np.floor(self._lon.min()), np.ceil(self._lon.max()))
         self._lat_bounds = (np.floor(self._lat.min()), np.ceil(self._lat.max()))
+        if self._lon_bounds[0] >= 0:
+            raise ValueError("``lon`` bounds must be within [-180, 180].")
 
     # -- Class Properties -- #
     @property
@@ -357,8 +359,15 @@ class ModelValidator():
             raise TypeError("``stats`` must be specified as a boolean.")
 
         # -- Load Observational Data -- #
-        obs_data = self._load_obs_data(obs_name=obs['name'], var_name=obs['var'], region=obs['region'], time_bounds=time_bounds, freq=freq)
+        obs_data = self._load_obs_data(obs_name=obs['name'],
+                                       var_name=obs['var'],
+                                       region=obs['region'],
+                                       time_bounds=time_bounds,
+                                       lon_bounds=self._lon_bounds,
+                                       lat_bounds=self._lat_bounds,
+                                       freq=freq)
 
+        print(obs_data)
         # -- Process Ocean Model Data -- #
         if time_bounds is not None:
             if isinstance(time_bounds, str):
