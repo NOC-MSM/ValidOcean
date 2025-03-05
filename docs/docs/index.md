@@ -12,10 +12,10 @@ Our aim is to facilitate the reproducible validation of ocean general circulatio
 
 ### Installation
 
-To get started, check out and set up an instance of the NPD GitHub [repository](https://github.com/NOC-MSM/NOC_Near_Present_Day):
+To get started, check out and install an instance of the ValidOcean GitHub [repository](https://github.com/NOC-MSM/ValidOcean):
 
 ```sh
-git clone git@github.com:NOC-MSM/NOC_Near_Present_Day.git
+git clone git@github.com:NOC-MSM/ValidOcean.git
 ```
 
 ??? tip "Helpful Tip..."
