@@ -12,7 +12,7 @@ packages = ["ValidOcean"]
 name = "ValidOcean"
 description = "Leveraging the cloud to accelerate ocean model validation."
 requires-python = ">=3.10"
-keywords = ["validation", "oceanography", "modelling", "analysis", "NEMO"]
+keywords = ["validation", "oceanography", "modelling", "analysis", "cloud"]
 authors = [{email = "oliver.tooth@noc.ac.uk"},{name = "Ollie Tooth"}]
 maintainers = [{name = "Ollie Tooth", email = "oliver.tooth@noc.ac.uk"}]
 classifiers = [
@@ -20,18 +20,17 @@ classifiers = [
   "Intended Audience :: Science/Research"
 ]
 dependencies = [
+  "aiohttp>=3.11.12",
   "dask[complete]>=2024.10.0",
   "flox>=0.9.12",
   "gsw>=3.6.19",
   "matplotlib>=3.9.3",
-  "scipy>=1.14.1",
-  "scikit-learn>=1.5.2",
+  "cartopy>=0.24.0",
+  "requests>=2.32.3",
   "xarray[io,accel]>=2024.10.0",
-  "xoak>=0.1.1",
-  "numba>=0.60.0",
+  "xesmf>=0.8.8",
   "numpy>=1.26.4",
   "zarr>=2.18.3",
-  "nsv @ git+https://github.com/oj-tooth/nordic-seas-validation.git",
   ]
 
 dynamic = ["version"]
