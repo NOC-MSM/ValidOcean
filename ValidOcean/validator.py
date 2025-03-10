@@ -16,7 +16,7 @@ from typing import Self
 # -- Import utility functions -- #
 import ValidOcean.data_loader as data_loader
 from ValidOcean.data_loader import DataLoader
-from ValidOcean.preprocess import _apply_spatial_bounds, _apply_time_bounds, _compute_climatology
+from ValidOcean.process import _get_spatial_bounds, _apply_spatial_bounds, _apply_time_bounds, _compute_climatology
 from ValidOcean.statistics import _compute_agg_stats
 from ValidOcean.regridding import _regrid_data
 from ValidOcean.plotting import _plot_2D_error
@@ -74,11 +74,8 @@ class ModelValidator():
             self._data = mdl_data
             self._lon = self._data['lon'].squeeze()
             self._lat = self._data['lat'].squeeze()
-            # Model domain bounds rounded to nearest largest integer:
-            self._lon_bounds = (np.floor(self._lon.min()), np.ceil(self._lon.max()))
-            self._lat_bounds = (np.floor(self._lat.min()), np.ceil(self._lat.max()))
-            if self._lon_bounds[0] >= 0:
-                raise ValueError("``lon`` bounds must be within [-180, 180].")
+            # Get model domain bounds rounded to nearest largest integer:
+            self._lon_bounds, self._lat_bounds = _get_spatial_bounds(lon=self._lon, lat=self._lat)
         else:
             self._data = xr.Dataset()
 
@@ -118,7 +115,12 @@ class ModelValidator():
 
     # -- Class Methods -- #
     def __repr__(self) -> str:
-        return f"\n<ModelValidator>\n\n-- Model Data --\n\n{self._data}\n\n-- Observations --\n\n{self._obs}\n\n-- Results --\n\n{self._results}\n\n-- Stats --\n\n{self._stats}"
+        return (f"\n<ModelValidator>\n\n"
+                f"-- Model Data --\n\n{self._data}\n\n"
+                f"-- Observations --\n\n{self._obs}\n\n"
+                f"-- Results --\n\n{self._results}\n\n"
+                f"-- Stats --\n\n{self._stats}"
+                )
 
 
     def _load_obs_data(self,
@@ -376,12 +378,13 @@ class ModelValidator():
 
         # -- Process Ocean Model Data -- #
         if obs['region'] is not None:
-            lon_bounds = (np.floor(obs_data['lon'].min()).values, np.ceil(obs_data['lon'].max()).values)
-            lat_bounds = (np.floor(obs_data['lat'].min()).values, np.ceil(obs_data['lat'].max()).values)
+            lon_bounds, lat_bounds = _get_spatial_bounds(lon=obs_data['lon'], lat=obs_data['lat'])
             mdl_data = _apply_spatial_bounds(data=self._data[var_name], 
                                              lon_bounds=lon_bounds,
                                              lat_bounds=lat_bounds,
                                              is_obs=False)
+        else:
+            mdl_data = self._data[var_name]
 
         if time_bounds is not None:
             if isinstance(time_bounds, str):

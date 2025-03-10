@@ -13,7 +13,7 @@ import abc
 import numpy as np
 import xarray as xr
 
-from ValidOcean.preprocess import _apply_spatial_bounds, _apply_time_bounds, _compute_climatology, _transform_longitudes
+from ValidOcean.process import _apply_spatial_bounds, _apply_time_bounds, _compute_climatology, _transform_longitudes
 
 # -- DataLoader Abstract Base Class -- #
 class DataLoader(abc.ABC):
