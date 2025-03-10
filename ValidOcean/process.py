@@ -13,6 +13,44 @@ import numpy as np
 import xarray as xr
 
 # -- Utility Functions -- #
+def _get_spatial_bounds(lon: xr.DataArray, lat: xr.DataArray) -> tuple[tuple]:
+    """
+    Get the spatial bounds of a given model or observational
+    domain rounded to nearest largest integer.
+
+    Parameters
+    ----------
+    lon : xarray.DataArray
+        DataArray containing the longitudes of the domain.
+        Longitudes must be in the range [-180, 180].
+    lat : xarray.DataArray
+        DataArray containing the latitudes of the domain.
+        Latitudes must be in the range [-90, 90].
+
+    Returns
+    -------
+    tuple
+        Tuples containing the spatial bounds of the domain
+        in the form (lon_min, lon_max), (lat_min, lat_max).
+    """
+    # -- Verify Inputs -- #
+    if not isinstance(lon, xr.DataArray):
+        raise TypeError("``lon`` must be an xarray DataArray.")
+    if not isinstance(lat, xr.DataArray):
+        raise TypeError("``lat`` must be an xarray DataArray.")
+    
+    # -- Compute Spatial Bounds -- #
+    lon_bounds = (np.floor(lon.min()), np.ceil(lon.max()))
+    if (lon_bounds[0] < -180) or (lon_bounds[1] > 180):
+        raise ValueError("``lon`` must be in the range [-180, 180].")
+
+    lat_bounds = (np.floor(lat.min()), np.ceil(lat.max()))
+    if (lat_bounds[0] < -90) or (lat_bounds[1] > 90):
+        raise ValueError("``lat`` must be in the range [-90, 90].")
+    
+    return lon_bounds, lat_bounds
+
+
 def _transform_longitudes(data: xr.DataArray) -> xr.DataArray:
     """
     Transform longitudes in a given xarray DataArray
