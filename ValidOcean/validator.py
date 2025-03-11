@@ -9,8 +9,11 @@ Author: Ollie Tooth (oliver.tooth@noc.ac.uk)
 """
 
 # -- Import required packages -- #
-import xarray as xr
 import numpy as np
+import xarray as xr
+import cmocean.cm as cmo
+import cartopy.crs as ccrs
+
 from typing import Self
 
 # -- Import utility functions -- #
@@ -89,14 +92,14 @@ class ModelValidator():
     def data(self) -> xr.Dataset:
         return self._data
     @data.setter
-    def results(self, value: xr.Dataset) -> None:
+    def data(self, value: xr.Dataset) -> None:
         self._data = value
 
     @property
     def obs(self) -> xr.Dataset:
         return self._obs
     @obs.setter
-    def results(self, value: xr.Dataset) -> None:
+    def obs(self, value: xr.Dataset) -> None:
         self._obs = value
 
     @property
@@ -198,7 +201,6 @@ class ModelValidator():
 
     def _update_obs(self,
                     da: xr.DataArray,
-                    var_name: str,
                     obs_name: str
                     ) -> Self:
         """
@@ -208,8 +210,6 @@ class ModelValidator():
         -----------
         da: xr.DataArray
             Ocean observations DataArray to add to the Dataset.
-        var_name: str
-            Name of variable to add to Dataset.
         obs_name: str
             Name of ocean observations.
 
@@ -221,23 +221,23 @@ class ModelValidator():
         # -- Verify Inputs -- #
         if not isinstance(da, xr.DataArray):
             raise TypeError("``da`` must be specified as an xarray DataArray.")
-        if not isinstance(var_name, str):
-            raise TypeError("``var_name`` must be specified as a string.")
         if not isinstance(obs_name, str):
             raise TypeError("``obs_name`` must be specified as a string.")
 
-        # Update ocean observations coords:
+        # -- Update Ocean Observations -- #
+        # Update coord names:
         coords = [crd for crd in da.coords]
         new_coords = {key: value for key, value in zip(coords, [f"{crd}_{obs_name}" for crd in coords])}
         da = da.rename(new_coords)
 
-        # Remove any existing DataArray & coords:
-        if f"{var_name}_{obs_name}" in self._obs.data_vars:
-            names = [crd for crd in self._obs[f"{var_name}_{obs_name}"].coords]
-            names.append(f"{var_name}_{obs_name}")
+        # Remove any existing vars & coords:
+        var_name = f"{da.name}_{obs_name}"
+        if var_name in self._obs.data_vars:
+            names = [crd for crd in self._obs[var_name].coords]
+            names.append(var_name)
             self._obs = self._obs.drop_vars(names=names)
 
-        self._obs[f"{var_name}_{obs_name}"] = da
+        self._obs[var_name] = da
 
         # Remove redundant coords:
         coord_names = [self._obs[var].coords for var in self._obs.data_vars]
@@ -249,7 +249,6 @@ class ModelValidator():
 
     def _update_results(self,
                         da: xr.DataArray,
-                        var_name: str,
                         obs_name: str | None = None
                         ) -> Self:
         """
@@ -259,8 +258,6 @@ class ModelValidator():
         -----------
         da: xr.DataArray
             Ocean model DataArray to add to the Dataset.
-        var_name: str
-            Name of variable to add to Dataset.
         obs_name: str | None, default=None
             Name of ocean observations if DataArray is defined
             on obs. grid. Default is ``None`` meaning DataArray
@@ -274,20 +271,20 @@ class ModelValidator():
         # -- Verify Inputs -- #
         if not isinstance(da, xr.DataArray):
             raise TypeError("``da`` must be specified as an xarray DataArray.")
-        if not isinstance(var_name, str):
-            raise TypeError("``var_name`` must be specified as a string.")
         if obs_name is not None:
             if not isinstance(obs_name, str):
                 raise TypeError("``obs_name`` must be specified as a string.")
 
-        # Update DataArray coords if regridded to obs:
+        # -- Update Model Validation Results -- #
+        # Update coords if regridded to obs:
         if obs_name is not None:
             coords = [crd for crd in da.coords if crd != 'obs']
             new_coords = {key: value for key, value in zip(coords, [f"{crd}_{obs_name}" for crd in coords])}
             da = da.rename(new_coords)
 
         # Remove existing DataArray & coords from this source:
-        if f"{var_name}" in self._results.data_vars:
+        var_name = da.name
+        if var_name in self._results.data_vars:
             names = [crd for crd in self._results[var_name].coords]
             names.append(var_name)
             self._results = self._results.drop_vars(names=names)
@@ -396,20 +393,24 @@ class ModelValidator():
         # -- Regrid Data -- #
         if regrid_to == 'model':
             obs_data = _regrid_data(source_grid=obs_data, target_grid=mdl_data, method=method)
+            obs_data.name = f"{var_name}"
         elif regrid_to == 'obs':
             mdl_data = _regrid_data(source_grid=mdl_data, target_grid=obs_data, method=method)
+            mdl_data.name = f"{var_name}"
         
         # -- Compute & Store Error -- #
         mdl_error = (mdl_data - obs_data).expand_dims(dim={'obs': np.array([obs['name']])}, axis=0)
+        mdl_error.name = f"{var_name}_error"
+
         if regrid_to == 'model':
-            self._update_results(da=mdl_error, var_name=f"{var_name}_error", obs_name=None)
-            self._update_results(da=mdl_data, var_name=var_name, obs_name=None)
+            self._update_results(da=mdl_error, obs_name=None)
+            self._update_results(da=mdl_data, obs_name=None)
         elif regrid_to == 'obs':
-            self._update_results(da=mdl_error, var_name=f"{var_name}_error", obs_name=obs['name'].lower())
-            self._update_results(da=mdl_data, var_name=var_name, obs_name=obs['name'].lower())
+            self._update_results(da=mdl_error, obs_name=obs['name'].lower())
+            self._update_results(da=mdl_data, obs_name=obs['name'].lower())
 
         # -- Store Ocean Observations Data -- #
-        self._update_obs(da=obs_data, var_name=var_name, obs_name=obs['name'].lower())
+        self._update_obs(da=obs_data, obs_name=obs['name'].lower())
 
         # -- Compute Aggregate Statistics -- #
         if stats:
@@ -485,9 +486,9 @@ class ModelValidator():
                        method : str = 'bilinear',
                        stats : bool = False,
                        figsize : tuple = (15, 8),
-                       plt_kwargs : dict = dict(cmap='RdBu_r', vmin=-2.5, vmax=2.5),
-                       cbar_kwargs : dict = dict(orientation='vertical', shrink=0.8),
-                       source_plots : bool = False,
+                       error_kwargs : dict = dict(cmap=cmo.balance, vmin=-2.5, vmax=2.5),
+                       source_plots : bool = True,
+                       source_kwargs : dict = dict(cmap=cmo.thermal, vmin=-2, vmax=30),
                        ) -> None:
         """
         Plot sea surface temperature error between ocean model and observations (model - observation).
@@ -518,16 +519,15 @@ class ModelValidator():
             Includes Mean Absolute Error, Mean Square Error & Root Mean Square Error.
         figsize : tuple, default: (15, 8)
             Figure size for the plot.
-        plt_kwargs : dict, default: ``{'cmap':'RdBu_r', 'vmin':-2.5, 'vmax':2.5}``
+        error_kwargs : dict, default: ``{'cmap':'RdBu_r', 'vmin':-2.5, 'vmax':2.5}``
             Keyword arguments for matplotlib pcolormesh. Only applied to (model - observation)
             error.
-        cbar_kwargs : dict, default: ``{'orientation':'vertical', 'shrink':0.8}``
-            Keyword arguments for matplotlib colorbar. Only applied to (model - observation)
-            error.
-        source_plots : bool, default: ``False``
+        source_plots : bool, default: ``True``
             Plot model, observations and (model - observation) error as separate subplots.
             This option is only available where climatology frequency ``freq``='total' or
             ``freq`` is a individual month (e.g., ``jan``).
+        source_kwargs : dict, default: ``{'cmap':'cmo.thermal', 'vmin':-2, 'vmax':30}``
+            Keyword arguments for model and observation matplotlib pcolormeshes.
 
         Returns
         -------
@@ -545,13 +545,17 @@ class ModelValidator():
                                )
 
         # -- Plot SST Error -- #
+        # Use global projection:
+        projection = ccrs.Robinson(central_longitude=-1)
+
         ax = _plot_2D_error(mv=self,
                             obs_name=obs_name,
                             var_name=sst_name,
+                            projection=projection,
                             figsize=figsize,
-                            plt_kwargs=plt_kwargs,
-                            cbar_kwargs=cbar_kwargs,
-                            source_plots=source_plots
+                            error_kwargs=error_kwargs,
+                            source_plots=source_plots,
+                            source_kwargs=source_kwargs,
                             )
         return ax
 
@@ -628,9 +632,9 @@ class ModelValidator():
                           method : str = 'bilinear',
                           stats : bool = False,
                           figsize : tuple = (15, 8),
-                          plt_kwargs : dict = dict(cmap='RdBu_r', vmin=-0.5, vmax=0.5),
-                          cbar_kwargs : dict = dict(orientation='vertical', shrink=0.8),
-                          source_plots : bool = False,
+                          error_kwargs : dict = dict(cmap=cmo.balance, vmin=-0.5, vmax=0.5),
+                          source_plots : bool = True,
+                          source_kwargs : dict = dict(cmap=cmo.ice, vmin=0, vmax=1),
                           ) -> None:
         """
         Plot sea ice concentration error between ocean model and observations (model - observation).
@@ -664,16 +668,14 @@ class ModelValidator():
             Includes Mean Absolute Error, Mean Square Error & Root Mean Square Error.
         figsize : tuple, default: (15, 8)
             Figure size for the plot.
-        plt_kwargs : dict, default: ``{'cmap':'RdBu_r', 'vmin':-0.5, 'vmax':0.5}``
-            Keyword arguments for matplotlib pcolormesh. Only applied to (model - observation)
-            error.
-        cbar_kwargs : dict, default: ``{'orientation':'vertical', 'shrink':0.8}``
-            Keyword arguments for matplotlib colorbar. Only applied to (model - observation)
-            error.
-        source_plots : bool, default: ``False``
+        error_kwargs : dict, default: ``{'cmap':'RdBu_r', 'vmin':-0.5, 'vmax':0.5}``
+            Keyword arguments for (model - observation) error matplotlib pcolormesh.
+        source_plots : bool, default: ``True``
             Plot model, observations and (model - observation) error as separate subplots.
             This option is only available where climatology frequency ``freq``='total' or
             ``freq`` is a individual month (e.g., ``jan``).
+        source_kwargs : dict, default: ``{'cmap':'cmo.ice', 'vmin':0, 'vmax':1}``
+            Keyword arguments for model and observation matplotlib pcolormeshes.
 
         Returns
         -------
@@ -691,13 +693,21 @@ class ModelValidator():
                                )
 
         # -- Plot SIC Error -- #
+        if region == 'arctic':
+            projection = ccrs.NorthPolarStereo()
+        elif region == 'antarctic':
+            projection = ccrs.SouthPolarStereo()
+        else:
+            projection = ccrs.Robinson(central_longitude=-1)
+
         ax = _plot_2D_error(mv=self,
                             obs_name=obs_name,
                             var_name=sic_name,
+                            projection=projection,
                             figsize=figsize,
-                            plt_kwargs=plt_kwargs,
-                            cbar_kwargs=cbar_kwargs,
-                            source_plots=source_plots
+                            error_kwargs=error_kwargs,
+                            source_plots=source_plots,
+                            source_kwargs=source_kwargs,
                             )
         return ax
 
@@ -758,6 +768,6 @@ class ModelValidator():
                                        )
 
         # -- Update Observational Data -- #
-        self._update_obs(da=obs_data, var_name=var_name, obs_name=obs_name.lower())
+        self._update_obs(da=obs_data, obs_name=obs_name.lower())
 
         return self

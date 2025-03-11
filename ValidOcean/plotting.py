@@ -19,10 +19,11 @@ import cartopy.feature as cfeature
 def _plot_2D_error(mv,
                    obs_name : str,
                    var_name : str,
+                   projection : ccrs.Projection,
                    figsize : tuple = (15, 8),
-                   plt_kwargs: dict = {},
-                   cbar_kwargs: dict = {},
+                   error_kwargs: dict = {},
                    source_plots: bool = False,
+                   source_kwargs: dict = {},
                    ) -> plt.Axes:
     """
     Plot error between ocean model and observations (model - observation)
@@ -36,16 +37,20 @@ def _plot_2D_error(mv,
         Name of observations dataset.
     var_name : str
         Name of variable to plot.
+    projection : ccrs.Projection
+        Cartopy geographic projection to use.
     figsize : tuple, default: (15, 8)
         Figure size for the plot.
-    plt_kwargs : dict, default: {}
-        Keyword arguments for plt.pcolormesh().
-    cbar_kwargs : dict, default: {}
-        Keyword arguments for plt.colorbar().
+    error_kwargs : dict, default: {}
+        Keyword arguments for (model - obs.) error
+        matplotlib pcolormesh.
     source_plots : bool, default: ``False``
-        Plot model, observations and (model - observation)
-        error as separate subplots. This option is only
+        Plot model, obs. and (model - obs.) error
+        as separate subplots. This option is only
         available where climatology frequency ``freq``='total'.
+    source_kwargs : dict, default: {}
+        Keyword arguments for model and obs. matplotlib 
+        pcolormeshes.
 
     Returns
     -------
@@ -57,14 +62,15 @@ def _plot_2D_error(mv,
         raise TypeError("``obs_name`` must be a string.")
     if not isinstance(var_name, str):
         raise TypeError("``var_name`` must be a string.")
-    if not isinstance(plt_kwargs, dict):
-        raise TypeError("``plt_kwargs`` must be a dictionary.")
-    if not isinstance(cbar_kwargs, dict):
-        raise TypeError("``cbar_kwargs`` must be a dictionary.")
+    if not isinstance(error_kwargs, dict):
+        raise TypeError("``error_kwargs`` must be a dictionary.")
     if not isinstance(source_plots, bool):
         raise TypeError("``source_plots`` must be a boolean.")
+    if not isinstance(source_kwargs, dict):
+        raise TypeError("``source_kwargs`` must be a dictionary.")
 
     # -- Plotting 2-dimensional variable -- #
+
     # Climatology Frequency = ['monthly', 'seasonal']:
     if (mv._results[var_name].ndim > 2):
         if (source_plots):
@@ -74,46 +80,44 @@ def _plot_2D_error(mv,
         if rows == 'season':
             row_vals = mv._results[rows].values
             row_labels = row_vals
-            _, axs = plt.subplots(nrows=2, ncols=2, figsize=figsize, subplot_kw={"projection": ccrs.Robinson
-            (central_longitude=-1.0)})
+            _, axs = plt.subplots(nrows=2, ncols=2, figsize=figsize, subplot_kw={"projection": projection})
         elif rows == 'month':
             row_vals = np.arange(1, 13)
             row_labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-            _, axs = plt.subplots(nrows=4, ncols=3, figsize=figsize, subplot_kw={"projection": ccrs.Robinson(central_longitude=-1.0)})
+            _, axs = plt.subplots(nrows=4, ncols=3, figsize=figsize, subplot_kw={"projection": projection})
 
         axs = axs.flatten()
         for n, row_n in enumerate(row_vals):
-            _plot_global_2d(axs[n], mv._lon, mv._lat, mv._results[f"{var_name}_error"].sel({rows: row_n}).squeeze(), plt_kwargs=plt_kwargs, cbar_kwargs=cbar_kwargs, cbar_label=f"(Model - Obs.) Error | {row_labels[n]}")
+            _plot_var_2d(axs[n], mv._results['lon'], mv._results['lat'], mv._results[f"{var_name}_error"].sel({rows: row_n}).squeeze(), plt_kwargs=error_kwargs, cbar_label=f"(Model - Obs.) Error | {row_labels[n]}")
 
     # Climatology Frequency = ['total']:
     else:
         if source_plots:
-            _, axs = plt.subplots(nrows=3, ncols=1, figsize=figsize, subplot_kw={"projection": ccrs.Robinson(central_longitude=-1.0)})
+            _, axs = plt.subplots(nrows=3, ncols=1, figsize=figsize, subplot_kw={"projection": projection})
 
-            _plot_global_2d(axs[0], mv._lon, mv._lat, mv._results[var_name], cbar_label=f"Model")
+            _plot_var_2d(axs[0], mv._results['lon'], mv._results['lat'], mv._results[var_name], plt_kwargs=source_kwargs, cbar_label=f"Model")
 
-            _plot_global_2d(axs[1], mv._lon, mv._lat, mv._obs[f"{var_name}_{obs_name.lower()}"], cbar_label=f"Observations")
+            _plot_var_2d(axs[1], mv._obs[f"lon_{obs_name.lower()}"], mv._obs[f"lat_{obs_name.lower()}"], mv._obs[f"{var_name}_{obs_name.lower()}"], plt_kwargs=source_kwargs, cbar_label=f"Observations")
 
-            _plot_global_2d(axs[2], mv._lon, mv._lat, mv._results[f"{var_name}_error"].squeeze(), plt_kwargs=plt_kwargs, cbar_kwargs=cbar_kwargs, cbar_label=f"(Model - Obs.) Error")
+            _plot_var_2d(axs[2], mv._results['lon'], mv._results['lat'], mv._results[f"{var_name}_error"].squeeze(), plt_kwargs=error_kwargs, cbar_label=f"(Model - Obs.) Error")
 
         else:
-            _, axs = plt.subplots(nrows=1, ncols=1, figsize=figsize, subplot_kw={"projection": ccrs.Robinson(central_longitude=-1.0)})
+            _, axs = plt.subplots(nrows=1, ncols=1, figsize=figsize, subplot_kw={"projection": projection})
 
-            _plot_global_2d(axs, mv._lon, mv._lat, mv._results[f"{var_name}_error"].squeeze(), plt_kwargs=plt_kwargs, cbar_kwargs=cbar_kwargs, cbar_label=f"(Model - Obs.) Error")
+            _plot_var_2d(axs, mv._results['lon'], mv._results['lat'], mv._results[f"{var_name}_error"].squeeze(), plt_kwargs=error_kwargs, cbar_label=f"(Model - Obs.) Error")
 
     return axs
 
 
-def _plot_global_2d(ax: plt.Axes,
-                    lon: xr.DataArray,
-                    lat: xr.DataArray,
-                    var: xr.DataArray,
-                    plt_kwargs: dict = {'cmap': cmo.thermal},
-                    cbar_kwargs: dict = {'orientation': 'vertical', 'shrink': 0.8},
-                    cbar_label: str = "(Model - Obs.) Error",
-                    ) -> plt.Axes:
+def _plot_var_2d(ax: plt.Axes,
+                 lon: xr.DataArray,
+                 lat: xr.DataArray,
+                 var: xr.DataArray,
+                 plt_kwargs: dict,
+                 cbar_label: str = "(Model - Obs.) Error",
+                 ) -> plt.Axes:
     """
-    Plot pcolormesh of 2-dimensional global variable.
+    Plot pcolormesh of 2-dimensional variable.
 
     Parameters
     ----------
@@ -147,8 +151,6 @@ def _plot_global_2d(ax: plt.Axes,
         raise ValueError("``var`` must be a 2-dimensional xarray DataArray.")
     if not isinstance(plt_kwargs, dict):
         raise TypeError("``plt_kwargs`` must be specified as a dictionary.")
-    if not isinstance(cbar_kwargs, dict):
-        raise TypeError("``cbar_kwargs`` must be a dictionary.")
     if not isinstance(cbar_label, str):
         raise TypeError("``cbar_label`` must be a string.")
 
@@ -171,12 +173,8 @@ def _plot_global_2d(ax: plt.Axes,
     ax.add_feature(coast_50m)
 
     # Add default attributes:
-    cbar = plt.colorbar(colormesh, ax=ax, **cbar_kwargs)
+    cbar = plt.colorbar(colormesh, ax=ax, orientation='vertical', shrink=0.8)
     cbar.ax.tick_params(labelsize=10)
-    if 'orientation' in cbar_kwargs.keys():
-        if cbar_kwargs['orientation'] == 'horizontal':
-            cbar.ax.set_xlabel(cbar_label, fontdict={'fontsize': 11, 'fontweight':'bold'})
-        else:
-            cbar.ax.set_ylabel(cbar_label, rotation=270, labelpad=20, fontdict={'fontsize': 10, 'fontweight':'bold'})
+    cbar.ax.set_ylabel(cbar_label, rotation=270, labelpad=20, fontdict={'fontsize': 10, 'fontweight':'bold'})
 
     return ax
