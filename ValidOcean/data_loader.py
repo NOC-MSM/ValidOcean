@@ -13,7 +13,7 @@ import abc
 import numpy as np
 import xarray as xr
 
-from ValidOcean.process import _apply_spatial_bounds, _apply_time_bounds, _compute_climatology, _transform_longitudes
+from ValidOcean.process import _get_spatial_bounds, _apply_spatial_bounds, _apply_time_bounds, _compute_climatology, _transform_longitudes
 
 # -- DataLoader Abstract Base Class -- #
 class DataLoader(abc.ABC):
@@ -213,19 +213,26 @@ class OISSTv2Loader(DataLoader):
             else:
                 raise ValueError("``_time_bounds`` must be specified as a either a slice or string. Available pre-defined climatologies include: '1991-2020'.")
 
-        data = xr.open_zarr(url, consolidated=True)[self._var_name]
+        # Data to inherit source attributes:
+        source = xr.open_zarr(url, consolidated=True)
+        data = source[self._var_name]
+        data.attrs = source.attrs
     
         # Transform longitudes to [-180, 180]:
         data = _transform_longitudes(data)
 
         # Extract observations for specified time, longitude and latitude bounds:
         data = _apply_spatial_bounds(data, lon_bounds=self._lon_bounds, lat_bounds=self._lat_bounds)
+
         if isinstance(self._time_bounds, slice):
             data = _apply_time_bounds(data, time_bounds=self._time_bounds)
 
         # Compute climatology:
         if self._freq is not None:
             data = _compute_climatology(data, freq=self._freq)
+
+        # Add spatial bounds to attributes:
+        data.attrs["lon_bounds"], data.attrs["lat_bounds"] = _get_spatial_bounds(lon=data["lon"], lat=data["lat"])
 
         return data
 
@@ -269,11 +276,11 @@ class NSIDCLoader(DataLoader):
                  ):
         # -- Verify Inputs -- #
         if not isinstance(var_name, str):
-            raise TypeError("``var_name`` must be a specfied as a string.")
+            raise TypeError("``var_name`` must be specfied as a string.")
         if var_name not in ['siconc', 'siext', 'siarea']:
             raise ValueError("``var_name`` must be one of 'siconc', 'siext', 'siarea'.")
         if not isinstance(region, str):
-            raise TypeError("``region`` must be a specfied as a string.")
+            raise TypeError("``region`` must be specfied as a string.")
         if region not in ['arctic', 'antarctic']:
             raise ValueError("``region`` must be one of 'arctic', 'antarctic'.")
 
@@ -303,15 +310,23 @@ class NSIDCLoader(DataLoader):
         elif self._freq == "antarctic":
             url = f"{self._source}/NSIDC/NSIDC_Sea_Ice_Index_v3_Antarctic_1978_2025/"
 
-        data = xr.open_zarr(url, consolidated=True)[self._var_name]
+        # Data to inherit source attributes:
+        source = xr.open_zarr(url, consolidated=True)
+        data = source[self._var_name]
+        data.attrs = source.attrs
 
         # Extract observations for specified time, longitude and latitude bounds:
-        data = _apply_spatial_bounds(data, lon_bounds=self._lon_bounds, lat_bounds=self._lat_bounds)
+        if ('x' in data.dims) & ('y' in data.dims):
+            data = _apply_spatial_bounds(data, lon_bounds=self._lon_bounds, lat_bounds=self._lat_bounds)
+
         if isinstance(self._time_bounds, slice):
             data = _apply_time_bounds(data, time_bounds=self._time_bounds)
 
         # Compute climatology:
         if self._freq is not None:
             data = _compute_climatology(data, freq=self._freq)
+
+        # Add spatial bounds to attributes:
+        data.attrs["lon_bounds"], data.attrs["lat_bounds"] = _get_spatial_bounds(lon=source["lon"], lat=source["lat"])
 
         return data
