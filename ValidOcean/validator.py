@@ -19,6 +19,7 @@ from typing import Self
 # -- Import utility functions -- #
 import ValidOcean.data_loader as data_loader
 from ValidOcean.data_loader import DataLoader
+from ValidOcean.aggregator import _aggregate_to_1D
 from ValidOcean.process import _get_spatial_bounds, _apply_spatial_bounds, _apply_time_bounds, _compute_climatology
 from ValidOcean.statistics import _compute_agg_stats
 from ValidOcean.regridding import _regrid_data
@@ -49,6 +50,8 @@ class ModelValidator():
         xarray Dataset containing ocean model output data.
     results : xarray.Dataset
         xarray Dataset containing model validation data.
+    obs : xarray.Dataset
+        xarray Dataset containing ocean observations data.
     stats : xarray.Dataset
         xarray Dataset containing model validation statistics.
     """
@@ -116,7 +119,7 @@ class ModelValidator():
     def stats(self, value: xr.Dataset) -> None:
         self._stats = value
 
-    # -- Class Methods -- #
+    # -- Magic Methods -- #
     def __repr__(self) -> str:
         return (f"\n<ModelValidator>\n\n"
                 f"-- Model Data --\n\n{self._data}\n\n"
@@ -125,6 +128,7 @@ class ModelValidator():
                 f"-- Stats --\n\n{self._stats}"
                 )
 
+    # -- Private Methods -- #
 
     def _load_obs_data(self,
                        obs_name : str,
@@ -375,10 +379,9 @@ class ModelValidator():
 
         # -- Process Ocean Model Data -- #
         if obs['region'] is not None:
-            lon_bounds, lat_bounds = _get_spatial_bounds(lon=obs_data['lon'], lat=obs_data['lat'])
             mdl_data = _apply_spatial_bounds(data=self._data[var_name], 
-                                             lon_bounds=lon_bounds,
-                                             lat_bounds=lat_bounds,
+                                             lon_bounds=obs_data.attrs['lon_bounds'],
+                                             lat_bounds=obs_data.attrs['lat_bounds'],
                                              is_obs=False)
         else:
             mdl_data = self._data[var_name]
@@ -393,10 +396,10 @@ class ModelValidator():
         # -- Regrid Data -- #
         if regrid_to == 'model':
             obs_data = _regrid_data(source_grid=obs_data, target_grid=mdl_data, method=method)
-            obs_data.name = f"{var_name}"
+            obs_data.name = var_name
         elif regrid_to == 'obs':
             mdl_data = _regrid_data(source_grid=mdl_data, target_grid=obs_data, method=method)
-            mdl_data.name = f"{var_name}"
+            mdl_data.name = var_name
         
         # -- Compute & Store Error -- #
         mdl_error = (mdl_data - obs_data).expand_dims(dim={'obs': np.array([obs['name']])}, axis=0)
@@ -414,11 +417,124 @@ class ModelValidator():
 
         # -- Compute Aggregate Statistics -- #
         if stats:
-            self.stats = _compute_agg_stats(error=mdl_error)
+            self.stats = _compute_agg_stats(mdl_data=mdl_data, obs_data=obs_data)
 
         return self
 
 
+    def _compute_1D_diagnostic(self,
+                               var_name : str = 'areacello',
+                               mask : xr.DataArray | None = None,
+                               aggregator : str = 'sum',
+                               out_name : str = 'siarea',
+                               obs : dict = dict(name='NSIDC', var='siarea', region='arctic'),
+                               time_bounds : slice | str | None = None,
+                               stats : bool = False,
+                               ) -> Self:
+        """
+        Compute 1-dimensional diagnostic from ocean model
+        output and observations.
+
+        Parameters
+        ----------
+        var_name : str, default: ``areacello``
+            Name of variable in ocean model dataset.
+        mask : xr.DataArray, default: None
+            Mask variable to apply to ocean model variable.
+        aggregator : str, default: ``sum``
+            Aggregation function to apply to ocean model variable.
+            Options include ``sum``, ``mean`` & ``std``
+        out_name : str, default: ``siarea``
+            Name of 1-dimensional diagnostic.
+        obs : dict, default: {``name``:``NSIDC``, ``var``:``siarea``, ``region``:``arctic``}
+            Dictionary defining the ``name`` of the observational
+            dataset and the diagnostic variable ``var``.
+        time_bounds : slice, str, default: ``None``
+            Time bounds to compute sea ice area.
+            Default is ``None`` meaning the entire time series is returned.
+            Custom bounds should be specified using a slice object.
+        stats : bool, default: ``False``
+            Return aggregated statistics of 1-dimensional ocean model &
+            observation diagnostic. Includes Mean Absolute Error, Mean Square Error,
+            Root Mean Square Error & Pearson Correlation Coefficient.
+
+        Returns
+        -------
+        ModelValidator
+            ModelValidator object including 1-dimensional ocean model & observation statistics,
+            stored in the ``results`` and ``obs`` attributes and aggregate statistics stored in
+            the ``stats`` attribute.
+        """
+        # -- Verify Inputs -- #
+        if not isinstance(var_name, str):
+            raise TypeError("``var_name`` must be specified as a string.")
+        if var_name not in self._data.variables:
+            raise ValueError(f"{var_name} not found in ocean model dataset.")
+        if mask is not None:
+            if not isinstance(mask, xr.DataArray):
+                raise TypeError("``mask`` must be specified as an xarray DataArray.")
+    
+        if not isinstance(aggregator, str):
+            raise TypeError("``aggregator`` must be specified as a string.")
+        if aggregator not in ['sum', 'mean', 'std']:
+            raise ValueError("``aggregator`` must be one of ``sum``, ``mean`` or ``std``.")
+        if not isinstance(out_name, str):
+            raise TypeError("``out_name`` must be specified as a string.")
+        
+        if not isinstance(obs, dict):
+            raise TypeError("``obs`` must be specified as a dictionary.")
+        for key in ['name', 'region', 'var']:
+            if key not in obs.keys():
+                raise ValueError(f"``obs`` dictionary must contain key ``{key}``.")
+
+        if not isinstance(stats, bool):
+            raise TypeError("``stats`` must be specified as a boolean.")
+
+        # -- Load Observational Data -- #
+        obs_data = self._load_obs_data(obs_name=obs['name'],
+                                       var_name=obs['var'],
+                                       region=obs['region'],
+                                       time_bounds=time_bounds,
+                                       lon_bounds=self._lon_bounds,
+                                       lat_bounds=self._lat_bounds,
+                                       freq=None)
+
+        # -- Process Ocean Model Data -- #
+        if obs['region'] is not None:
+            mdl_data = _apply_spatial_bounds(data=self._data[var_name], 
+                                             lon_bounds=obs_data.attrs['lon_bounds'],
+                                             lat_bounds=obs_data.attrs['lat_bounds'],
+                                             is_obs=False)
+            if mask is not None:
+                mask = _apply_spatial_bounds(data=mask, 
+                                             lon_bounds=obs_data.attrs['lon_bounds'],
+                                             lat_bounds=obs_data.attrs['lat_bounds'],
+                                             is_obs=False)
+        else:
+            mdl_data = self._data[var_name]
+
+        if time_bounds is not None:
+            if isinstance(time_bounds, str):
+                time_bounds = slice(time_bounds.split('-')[0], time_bounds.split('-')[1])
+            mdl_data = _apply_time_bounds(data=mdl_data, time_bounds=time_bounds, is_obs=False)
+
+        mdl_data = _aggregate_to_1D(data=mdl_data, mask=mask, aggregator=aggregator)
+
+        # -- Store Model & Observational Statistics -- #
+        mdl_data = mdl_data.expand_dims(dim={'obs': np.array([obs['name']])}, axis=0)
+        mdl_data.name = out_name
+        self._update_results(da=mdl_data, obs_name=None)
+
+        self._update_obs(da=obs_data, obs_name=obs['name'].lower())
+
+        # -- Compute Aggregate Statistics -- #
+        if stats:
+            self.stats = _compute_agg_stats(mdl_data=mdl_data, obs_data=obs_data)
+
+        return self
+
+
+    # -- Public Methods -- #
     def compute_sst_error(self,
                           sst_name : str = 'tos_con',
                           obs_name : str = 'OISSTv2',
@@ -682,7 +798,7 @@ class ModelValidator():
         matplotlib Axes
             Matplotlib axes object displaying (model - observation) sea ice concentration error.
         """
-        # -- Compute SIC Error -- #
+        # -- Compute Sea Ice Conc. Error -- #
         self._compute_2D_error(var_name=sic_name,
                                obs=dict(name=obs_name, region=region, var='siconc'),
                                time_bounds=time_bounds,
@@ -692,7 +808,7 @@ class ModelValidator():
                                stats=stats,
                                )
 
-        # -- Plot SIC Error -- #
+        # -- Plot Sea Ice Conc. Error -- #
         if region == 'arctic':
             projection = ccrs.NorthPolarStereo()
         elif region == 'antarctic':
@@ -710,6 +826,69 @@ class ModelValidator():
                             source_kwargs=source_kwargs,
                             )
         return ax
+
+
+    def compute_siarea_timeseries(self,
+                                  sic_name : str = 'siconc',
+                                  area_name : str = 'areacello',
+                                  obs_name : str = 'NSIDC',
+                                  region : str = 'arctic',
+                                  time_bounds : slice | str | None = None,
+                                  stats : bool = False,
+                                  ) -> Self:
+        """
+        Compute sea ice area time series from sea ice concentration in
+        ocean model and from observations.
+
+        The sea ice area is calculated as the total area of grid cells
+        where sea ice concentration exceeds 15%. This ensures compatibility
+        with satellite-derived observations.
+
+        Parameters
+        ----------
+        sic_name : str, default: ``siconc``
+            Name of sea ice concentration variable in ocean model dataset.
+        area_name : str, default: ``areacello``
+            Name of ocean model grid cell area variable.
+        obs_name : str, default: ``NSIDC``
+            Name of observational dataset.
+            Options include ``NSIDC``, ``OISSTv2`` and ``HadISST``.
+        region : str, default: ``arctic``
+            Polar region of ocean observations dataset to calculate sea ice
+            concentration error. Options are ``arctic`` or ``antarctic``.
+        time_bounds : slice, str, default: ``None``
+            Time bounds to compute sea ice area.
+            Default is ``None`` meaning the entire time series is returned.
+            Custom bounds should be specified using a slice object.
+        stats : bool, default: ``False``
+            Return aggregated statistics of sea ice area in ocean model & observations.
+            Includes Mean Absolute Error, Mean Square Error, Root Mean Square Error
+            & Pearson Correlation Coefficient.
+
+        Returns
+        -------
+        ModelValidator
+            ModelValidator object including sea ice area in ocean model & observations,
+            stored in the ``results`` attribute and aggregate statistics stored in the
+            ``stats`` attribute.
+        """
+        # -- Verify Inputs -- #
+        if not isinstance(sic_name, str):
+            raise TypeError("``sic_name`` must be specified as a string.")
+        if sic_name not in self._data.variables:
+            raise ValueError(f"{sic_name} not found in ocean model dataset.")
+
+        # -- Compute Sea Ice Area -- #
+        self._compute_1D_diagnostic(var_name=area_name,
+                                    mask=self._data[sic_name] > 0.15,
+                                    aggregator='sum',
+                                    out_name='siarea',
+                                    obs=dict(name=obs_name, region=region, var='siarea'),
+                                    time_bounds=time_bounds,
+                                    stats=stats,
+                                    )
+
+        return self
 
 
     def load_observations(self,
