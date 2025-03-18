@@ -12,71 +12,113 @@ Author: Ollie Tooth (oliver.tooth@noc.ac.uk)
 import numpy as np
 import xarray as xr
 
-def _compute_agg_stats(error: xr.DataArray) -> dict:
+# -- Define Statistics Utility Functions -- #
+def _compute_agg_stats(mdl_data: xr.DataArray,
+                       obs_data : xr.DataArray,
+                       ) -> xr.Dataset:
     """
-    Compute aggregated statistics to compare ocean model output
-    and ocean observations.
+    Aggregate multi-dimensional DataArray of (model - obs.)
+    errors to scalar statistics.
 
-    Aggregated statistics include: Mean Absolute Error (MAE),
-    Mean Square Error (MSE), and Root Mean Squared Error (RMSE).
+    Aggregator functions include: Mean Absolute Error (MAE),
+    Mean Square Error (MSE), and Root Mean Squared Error (RMSE),
+    Pearson Correlation Coefficient (r).
+
+    Note that the Pearson Correlation Coefficient is only
+    computed where the core time dimension is present.
 
     Parameters
     ----------
-    error : xarray.DataArray
-        Error between ocean model output and ocean observations.
+    mdl_data : xarray.DataArray
+        Ocean model variable.
+    obs_data : xarray.DataArray
+        Ocean observation variable.
 
     Returns
     -------
     xr.Dataset
-        Dataset containing aggregated statistics.
+        Dataset containing scalar statistics resulting from aggregation.
     """
     # -- Verify Inputs -- #
-    if not isinstance(error, xr.DataArray):
-        raise TypeError("``error`` must be an xarray.DataArray.")
+    if not isinstance(mdl_data, xr.DataArray):
+        raise TypeError("``mdl_data`` must be an xarray.DataArray.")
+    if not isinstance(obs_data, xr.DataArray):
+        raise TypeError("``obs_data`` must be an xarray.DataArray.")
 
     # -- Compute Aggregated Statistics -- #
-    agg_stats = xr.Dataset()
-    error = error.squeeze()
+    result = xr.Dataset()
+    error = (mdl_data - obs_data).squeeze()
     
-    agg_dims = [dim for dim in error.dims if dim not in ['season', 'month']]
-    agg_stats['Mean Absolute Error'] = _mean_abs_error(error=error, agg_dims=agg_dims)
-    agg_stats['Mean Square Error'] = _mean_square_error(error=error, agg_dims=agg_dims)
-    agg_stats['Root Mean Square Error'] = _root_mean_square_error(error=error, agg_dims=agg_dims)
+    dims = [dim for dim in error.dims if dim not in ['season', 'month']]
+    result['Mean Absolute Error'] = _mean_abs_error(error=error, dims=dims)
+    result['Mean Square Error'] = _mean_square_error(error=error, dims=dims)
+    result['Root Mean Square Error'] = _root_mean_square_error(error=error, dims=dims)
+    if 'time' in dims:
+        result['Pearson Correlation Coefficient'] = _pearson_correlation(mdl_data=mdl_data, obs_data=obs_data, dims="time")
 
-    return agg_stats
+    return result
 
-def _mean_abs_error(error : xr.DataArray, agg_dims : list) -> xr.DataArray:
+
+def _mean_abs_error(error : xr.DataArray,
+                    dims : list,
+                    ) -> xr.DataArray:
     """
     Compute the mean absolute error of a multi-
-    dimensional (model - obs.) error DataArray.
+    dimensional (model - obs.) error.
 
     Parameters
     ----------
     error : xr.DataArray
-        2/3-dimensional DataArray of (model - obs.) errors.
+        Multi-dimensional DataArray containing (model - obs.) errors.
     """
-    return np.abs(error).mean(dim=agg_dims, skipna=True)
+    return np.abs(error).mean(dim=dims, skipna=True)
 
-def _mean_square_error(error : xr.DataArray, agg_dims : list) -> xr.DataArray:
+
+def _mean_square_error(error : xr.DataArray,
+                       dims : list,
+                       ) -> xr.DataArray:
     """
     Compute the mean squared error of a multi-
-    dimensional (model - obs.) error DataArray.
+    dimensional (model - obs.) error.
 
     Parameters
     ----------
     error : xr.DataArray
-        2/3-dimensional DataArray of (model - obs.) errors.
+        Multi-dimensional DataArray of (model - obs.) errors.
     """
-    return np.square(np.abs(error)).mean(dim=agg_dims, skipna=True)
+    return np.square(np.abs(error)).mean(dim=dims, skipna=True)
 
-def _root_mean_square_error(error : xr.DataArray, agg_dims : list) -> xr.DataArray:
+
+def _root_mean_square_error(error : xr.DataArray,
+                            dims : list,
+                            ) -> xr.DataArray:
     """
     Compute the root mean squared error of a multi-
-    dimensional (model - obs.) error DataArray.
+    dimensional (model - obs.) error.
 
     Parameters
     ----------
     error : xr.DataArray
-        2/3-dimensional DataArray of (model - obs.) errors.
+        Multi-dimensional DataArray of (model - obs.) errors.
     """
-    return np.sqrt(np.square(np.abs(error)).mean(dim=agg_dims, skipna=True))
+    return np.sqrt(np.square(np.abs(error)).mean(dim=dims, skipna=True))
+
+
+def _pearson_correlation(mdl_data : xr.DataArray,
+                         obs_data : xr.DataArray,
+                         dim : str,
+                         ) -> xr.DataArray:
+    """
+    Compute the Pearson Correlation Coefficient between multi-
+    dimensional model & observational DataArrays.
+
+    Parameters
+    ----------
+    mdl_data : xr.DataArray
+        Ocean model multi-dimensional DataArray.
+    obs_data : xr.DataArray
+        Ocean observation multi-dimensional DataArray.
+    dim : str
+        Dimension to compute correlation coefficient over.
+    """
+    return xr.corr(da_a=mdl_data, da_b=obs_data, dim=dim)
