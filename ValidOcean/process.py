@@ -29,8 +29,8 @@ def _get_spatial_bounds(lon: xr.DataArray, lat: xr.DataArray) -> tuple[tuple]:
 
     Returns
     -------
-    tuple
-        Tuples containing the spatial bounds of the domain
+    tuple[tuple]
+        Tuples of floats containing the spatial bounds of the domain
         in the form (lon_min, lon_max), (lat_min, lat_max).
     """
     # -- Verify Inputs -- #
@@ -40,11 +40,11 @@ def _get_spatial_bounds(lon: xr.DataArray, lat: xr.DataArray) -> tuple[tuple]:
         raise TypeError("``lat`` must be an xarray DataArray.")
     
     # -- Compute Spatial Bounds -- #
-    lon_bounds = (np.floor(lon.min()), np.ceil(lon.max()))
+    lon_bounds = (np.floor(lon.min().values), np.ceil(lon.max().values))
     if (lon_bounds[0] < -180) or (lon_bounds[1] > 180):
         raise ValueError("``lon`` must be in the range [-180, 180].")
 
-    lat_bounds = (np.floor(lat.min()), np.ceil(lat.max()))
+    lat_bounds = (np.floor(lat.min().values), np.ceil(lat.max().values))
     if (lat_bounds[0] < -90) or (lat_bounds[1] > 90):
         raise ValueError("``lat`` must be in the range [-90, 90].")
     
@@ -80,9 +80,9 @@ def _transform_longitudes(data: xr.DataArray) -> xr.DataArray:
     return data
 
 def _apply_time_bounds(data : xr.DataArray,
-                 time_bounds : slice,
-                 is_obs : bool = True,
-                 ) -> xr.DataArray:
+                       time_bounds : slice,
+                       is_obs : bool = True,
+                       ) -> xr.DataArray:
     """
     Subset a given xarray DataArray according to the
     specified time bounds.
@@ -137,8 +137,8 @@ def _apply_time_bounds(data : xr.DataArray,
 
 
 def _apply_spatial_bounds(data : xr.DataArray,
-                          lon_bounds : tuple,
-                          lat_bounds : tuple,
+                          lon_bounds : tuple[float],
+                          lat_bounds : tuple[float],
                           is_obs : bool = True,
                           ) -> xr.DataArray:
     """
@@ -149,10 +149,10 @@ def _apply_spatial_bounds(data : xr.DataArray,
     ----------
     data : xarray.DataArray
         DataArray containing the variable to subset.
-    lon_bounds : tuple
+    lon_bounds : tuple[float]
         Longitude bounds to subset the data. Must be a
         tuple with minimum and maximum values.
-    lat_bounds : tuple
+    lat_bounds : tuple[float]
         Latitude bounds to subset the data. Must be a
         tuple with minimum and maximum values.
     is_obs : bool, default: False
@@ -172,10 +172,14 @@ def _apply_spatial_bounds(data : xr.DataArray,
         raise ValueError("``data`` must contain coordinates ``lon`` and ``lat``.")
     if not isinstance(lon_bounds, tuple):
         raise TypeError("``lon_bounds`` must be a tuple.")
+    if all(list(map(isinstance, lon_bounds, [(float, int), (float, int)]))) is False:
+        raise TypeError("``lon_bounds`` tuple must contain only int or float types.")
     if (lon_bounds[0] < -180) or (lon_bounds[1] > 180):
         raise ValueError("``lon_bounds`` must be within the range (-180, 180).")
     if not isinstance(lat_bounds, tuple):
         raise TypeError("``lat_bounds`` must be a tuple.")
+    if all(list(map(isinstance, lat_bounds, [(float, int), (float, int)]))) is False:
+        raise TypeError("``lat_bounds`` tuple must contain only int or float types.")
     if (lat_bounds[0] < -90) or (lat_bounds[1] > 90):
         raise ValueError("``lat_bounds`` must be within the range (-90, 90).")
     if not isinstance(is_obs, bool):
@@ -200,7 +204,7 @@ def _apply_spatial_bounds(data : xr.DataArray,
         else:
             data_type = 'model'
 
-        warning_message = f"[longitude: {lon_bounds[0].values.astype(float)}, {lon_bounds[1].values.astype(float)}; latitude: {lat_bounds[0].values.astype(float)}, {lat_bounds[1].values.astype(float)}] bounds are outside the range of available {data_type} data [longitude: {data.lon.min().values.astype(float)}, {lon.max().values.astype(float)}; latitude: {lat.min().values.astype(float)}, {lat.max().values.astype(float)}]."
+        warning_message = f"[longitude: {lon_bounds[0]}, {lon_bounds[1]}; latitude: {lat_bounds[0]}, {lat_bounds[1]}] bounds are outside the range of available {data_type} data [longitude: {data.lon.min().values.astype(float)}, {lon.max().values.astype(float)}; latitude: {lat.min().values.astype(float)}, {lat.max().values.astype(float)}]."
         warnings.warn(warning_message, RuntimeWarning)
     
     # -- Subset Data -- #
