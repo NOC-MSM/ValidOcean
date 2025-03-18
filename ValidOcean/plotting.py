@@ -74,7 +74,7 @@ def _plot_2D_error(mv,
     # Climatology Frequency = ['monthly', 'seasonal']:
     if (mv._results[var_name].ndim > 2):
         if (source_plots):
-            warnings.warn("``source_plots`` = True is only available where ``freq`` = 'total'. Using ``source_plots`` = False.", RuntimeWarning)
+            warnings.warn("source_plots = True is only available where freq = 'total'. Using source_plots = False.", RuntimeWarning)
 
         rows = mv._results[var_name].dims[0]
         if rows == 'season':
