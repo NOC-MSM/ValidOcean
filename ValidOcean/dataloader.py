@@ -13,7 +13,7 @@ import abc
 import numpy as np
 import xarray as xr
 
-from ValidOcean.process import _get_spatial_bounds, _apply_spatial_bounds, _apply_time_bounds, _compute_climatology, _transform_longitudes
+from ValidOcean.processing import _get_spatial_bounds, _apply_spatial_bounds, _apply_time_bounds, _compute_climatology, _transform_longitudes
 
 # -- DataLoader Abstract Base Class -- #
 class DataLoader(abc.ABC):
@@ -307,7 +307,7 @@ class NSIDCLoader(DataLoader):
         # Load data from the JASMIN Object Store:
         if self._region == "arctic":
             url = f"{self._source}/NSIDC/NSIDC_Sea_Ice_Index_v3_Arctic_1978_2025/"
-        elif self._freq == "antarctic":
+        elif self._region == "antarctic":
             url = f"{self._source}/NSIDC/NSIDC_Sea_Ice_Index_v3_Antarctic_1978_2025/"
 
         # Data to inherit source attributes:
