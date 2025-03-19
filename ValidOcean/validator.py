@@ -17,13 +17,13 @@ import cartopy.crs as ccrs
 from typing import Self
 
 # -- Import utility functions -- #
-import ValidOcean.data_loader as data_loader
-from ValidOcean.data_loader import DataLoader
+import ValidOcean.dataloader as dataloader
+from ValidOcean.dataloader import DataLoader
 from ValidOcean.aggregator import _aggregate_to_1D
-from ValidOcean.process import _get_spatial_bounds, _apply_spatial_bounds, _apply_time_bounds, _compute_climatology
+from ValidOcean.processing import _get_spatial_bounds, _apply_spatial_bounds, _apply_time_bounds, _compute_climatology
 from ValidOcean.statistics import _compute_agg_stats
 from ValidOcean.regridding import _regrid_data
-from ValidOcean.plotting import _plot_2D_error
+from ValidOcean.plotting import _plot_timeseries, _plot_2D_error
 
 # -- Define ModelValidator Class -- #
 class ModelValidator():
@@ -180,8 +180,8 @@ class ModelValidator():
         
         # -- Load Ocean Observations Dataset -- #
         if self._dataloader is None:
-            if hasattr(data_loader, f"{obs_name}Loader"):
-                ObsDataLoader = getattr(data_loader, f"{obs_name}Loader")
+            if hasattr(dataloader, f"{obs_name}Loader"):
+                ObsDataLoader = getattr(dataloader, f"{obs_name}Loader")
                 obs_data = ObsDataLoader(var_name=var_name,
                                          region=region,
                                          time_bounds=time_bounds,
@@ -292,6 +292,8 @@ class ModelValidator():
             names = [crd for crd in self._results[var_name].coords]
             names.append(var_name)
             self._results = self._results.drop_vars(names=names)
+            dims = [dim for dim in da.dims if dim in self._results.dims]
+            self._results = self._results.drop_dims(drop_dims=dims)
 
         self._results[var_name] = da
 
@@ -516,7 +518,11 @@ class ModelValidator():
         if time_bounds is not None:
             if isinstance(time_bounds, str):
                 time_bounds = slice(time_bounds.split('-')[0], time_bounds.split('-')[1])
-            mdl_data = _apply_time_bounds(data=mdl_data, time_bounds=time_bounds, is_obs=False)
+
+            if 'time' in mdl_data.dims:
+                mdl_data = _apply_time_bounds(data=mdl_data, time_bounds=time_bounds, is_obs=False)
+            if (mask is not None) & ('time' in mask.dims):
+                mask = _apply_time_bounds(data=mask, time_bounds=time_bounds, is_obs=False)
 
         mdl_data = _aggregate_to_1D(data=mdl_data, mask=mask, aggregator=aggregator)
 
@@ -889,6 +895,84 @@ class ModelValidator():
                                     )
 
         return self
+
+
+    def plot_siarea_timeseries(self,
+                               sic_name : str = 'siconc',
+                               area_name : str = 'areacello',
+                               obs_name : str = 'NSIDC',
+                               region : str = 'arctic',
+                               time_bounds : slice | str | None = None,
+                               figsize : tuple = (12, 5),
+                               plot_kwargs : dict = dict(linewidth=2),
+                               stats : bool = False,
+                               ) -> Self:
+        """
+        Plot sea ice area time series calculated from sea ice concentration in
+        ocean model and observations.
+
+        The sea ice area is calculated as the total area of grid cells
+        where sea ice concentration exceeds 15%. This ensures compatibility
+        with satellite-derived observations.
+
+        Parameters
+        ----------
+        sic_name : str, default: ``siconc``
+            Name of sea ice concentration variable in ocean model dataset.
+        area_name : str, default: ``areacello``
+            Name of ocean model grid cell area variable.
+        obs_name : str, default: ``NSIDC``
+            Name of observational dataset.
+            Options include ``NSIDC``, ``OISSTv2`` and ``HadISST``.
+        region : str, default: ``arctic``
+            Polar region of ocean observations dataset to calculate sea ice
+            concentration error. Options are ``arctic`` or ``antarctic``.
+        time_bounds : slice, str, default: ``None``
+            Time bounds to compute sea ice area.
+            Default is ``None`` meaning the entire time series is returned.
+            Custom bounds should be specified using a slice object.
+        figsize : tuple, default: (12, 5)
+            Figure size for the plot.
+        plot_kwargs : dict, default: ``{'linewidth':2}``
+            Keyword arguments for matplotlib line plot. Applied to both model
+            and observational sea ice area.
+        stats : bool, default: ``False``
+            Return aggregated statistics of sea ice area in ocean model & observations.
+            Includes Mean Absolute Error, Mean Square Error, Root Mean Square Error
+            & Pearson Correlation Coefficient.
+
+        Returns
+        -------
+        matplotlib Axes
+            Matplotlib axes object displaying model & observation sea ice area time series.
+        """
+        # -- Verify Inputs -- #
+        if not isinstance(sic_name, str):
+            raise TypeError("``sic_name`` must be specified as a string.")
+        if sic_name not in self._data.variables:
+            raise ValueError(f"{sic_name} not found in ocean model dataset.")
+
+        # -- Compute Sea Ice Area -- #
+        self._compute_1D_diagnostic(var_name=area_name,
+                                    mask=self._data[sic_name] > 0.15,
+                                    aggregator='sum',
+                                    out_name='siarea',
+                                    obs=dict(name=obs_name, region=region, var='siarea'),
+                                    time_bounds=time_bounds,
+                                    stats=stats,
+                                    )
+
+        # -- Plot Sea Ice Area -- #                          
+        ax = _plot_timeseries(mv=self,
+                              obs_name=obs_name,
+                              var_name='siarea',
+                              scale=1e-12,
+                              figsize=figsize,
+                              plot_kwargs=plot_kwargs,
+                              labels={'x':'Time', 'y':'Sea Ice Area (km$^2$)'}
+                              )
+
+        return ax
 
 
     def load_observations(self,
