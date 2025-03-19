@@ -74,11 +74,12 @@ nav:
   - User Guide: user_guide.md
   - Observations: observations.md
   - Customisation: customisation.md
-  - Gallery: 
-    - examples.md
-    - Notebooks:
-      - example_1_sst_validation.ipynb
-      - example_2_sic_validation.ipynb
+  - Tutorial: 
+    - Learn By Examples:
+      - ex1_getting_started.ipynb
+      - ex2_sst_validation_workflow.ipynb
+      - ex3_sea_ice_validation_workflow.ipynb
+      - ex4_ocean_observations.ipynb
   - Contributing: contributing.md
 
 plugins:
