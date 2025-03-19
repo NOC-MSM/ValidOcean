@@ -4,3 +4,4 @@ __author__ = "Ollie Tooth"
 __credits__ = "National Oceanography Centre"
 
 from ValidOcean.validator import ModelValidator
+from ValidOcean.dataloader import DataLoader
