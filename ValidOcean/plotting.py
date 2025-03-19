@@ -16,6 +16,67 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
 # -- Define Plotting Utility Functions -- #
+def _plot_timeseries(mv,
+                     obs_name : str,
+                     var_name : str,
+                     scale : float = 1.0,
+                     figsize : tuple = (15, 8),
+                     plot_kwargs: dict = {},
+                     labels: dict = {'x': 'Time', 'y': 'Variable'},
+                     ) -> plt.Axes:
+    """
+    Plot time series of model & observation data for a given
+    1-dimensional variable.
+
+    Parameters
+    ----------
+    mv : ModelValidator
+        ModelValidator object.
+    obs_name : str
+        Name of observations dataset.
+    var_name : str
+        Name of variable to plot.
+    scale : float, default: 1.0
+        Scale factor to multiply variables by.
+    figsize : tuple, default: (15, 8)
+        Figure size for the plot.
+    plot_kwargs : dict, default: {}
+        Keyword arguments for matplotlib 
+        line plot.
+
+    Returns
+    -------
+    plt.Axes
+        Matplotlib axes object.
+    """
+    # -- Verify Inputs -- #
+    if not isinstance(obs_name, str):
+        raise TypeError("``obs_name`` must be a string.")
+    if not isinstance(var_name, str):
+        raise TypeError("``var_name`` must be a string.")
+    if not isinstance(scale, (int, float)):
+        raise TypeError("``scale`` must be numeric.")
+    if not isinstance(plot_kwargs, dict):
+        raise TypeError("``plot_kwargs`` must be a dictionary.")
+    if not isinstance(labels, dict):
+        raise TypeError("``labels`` must be a dictionary.")
+
+    # -- Plotting 1-dimensional variable -- #
+    _, axs = plt.subplots(nrows=1, ncols=1, figsize=figsize)
+
+    axs.grid(True, linewidth=1, linestyle='--', color='0.7')
+    axs.plot(mv._results['time'], scale*mv._results[var_name].squeeze(), label='Model', color='dodgerblue', **plot_kwargs)
+    axs.plot(mv._obs[f"time_{obs_name.lower()}"], scale*mv._obs[f"{var_name}_{obs_name.lower()}"].squeeze(), label='Observations', color='darkorange', **plot_kwargs)
+
+    axs.set_xlabel(labels['x'], fontsize=12, fontweight='bold')
+    axs.set_ylabel(labels['y'], fontsize=12, fontweight='bold')
+    axs.tick_params(axis='both', which='major', labelsize=12)
+    axs.tick_params(axis='both', which='minor', labelsize=12)
+    axs.legend(prop={'size': 11, 'weight': 'bold'})
+
+    return axs
+
+
 def _plot_2D_error(mv,
                    obs_name : str,
                    var_name : str,
