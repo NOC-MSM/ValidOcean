@@ -19,7 +19,7 @@ from msm_os.object_store import ObjectStoreS3
 
 # -- Define JASMIN S3 object store -- #
 # Create ObjectStoreS3 instance:
-store_credentials_json = '/dssgfs01/working/otooth/AtlantiS/jasmin_os/credentials/jasmin_os_credentials.json'
+store_credentials_json = '.../jasmin_os/credentials/jasmin_os_credentials.json'
 obj_store = ObjectStoreS3(anon=False, store_credentials_json=store_credentials_json)
 # Define bucket name:
 bucket = 'npd-obs'

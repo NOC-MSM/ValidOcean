@@ -17,7 +17,7 @@ sys.path.append('/dssgfs01/working/otooth/AtlantiS/jasmin_os/msm-os/src/')
 from msm_os.object_store import ObjectStoreS3
 
 # -- Define JASMIN S3 object store -- #
-store_credentials_json = '/dssgfs01/working/otooth/AtlantiS/jasmin_os/credentials/jasmin_os_credentials.json'
+store_credentials_json = '.../jasmin_os/credentials/jasmin_os_credentials.json'
 obj_store = ObjectStoreS3(anon=False, store_credentials_json=store_credentials_json)
 print('Completed: Initialised JASMIN S3 object store using user credentials.')
 
