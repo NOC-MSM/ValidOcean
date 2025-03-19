@@ -54,7 +54,7 @@ def _compute_agg_stats(mdl_data: xr.DataArray,
     result['Mean Square Error'] = _mean_square_error(error=error, dims=dims)
     result['Root Mean Square Error'] = _root_mean_square_error(error=error, dims=dims)
     if 'time' in dims:
-        result['Pearson Correlation Coefficient'] = _pearson_correlation(mdl_data=mdl_data, obs_data=obs_data, dims="time")
+        result['Pearson Correlation Coefficient'] = _pearson_correlation(mdl_data=mdl_data, obs_data=obs_data, dim="time")
 
     return result
 
