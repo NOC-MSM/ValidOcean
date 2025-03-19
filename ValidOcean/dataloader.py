@@ -142,7 +142,8 @@ class DataLoader(abc.ABC):
 class OISSTv2Loader(DataLoader):
     """
     DataLoader to load OISSTv2 sea surface temperature
-    observations stored in the JASMIN Object Store.
+    & sea ice concentration observations stored in the
+    JASMIN Object Store.
 
     Parameters
     ----------
@@ -187,8 +188,8 @@ class OISSTv2Loader(DataLoader):
 
     def _load_data(self) -> xr.DataArray:
         """
-        Load OISSTv2 sea surface temperature climatology
-        from observations stored in the JASMIN Object Store.
+        Load OISSTv2 ocean observations data & optionally
+        compute climatology using the JASMIN Object Store.
 
         Returns
         -------
@@ -216,10 +217,8 @@ class OISSTv2Loader(DataLoader):
         # Data to inherit source attributes:
         source = xr.open_zarr(url, consolidated=True)
         data = source[self._var_name]
-        data.attrs = source.attrs
-    
-        # Transform longitudes to [-180, 180]:
         data = _transform_longitudes(data)
+        data.attrs = source.attrs
 
         # Extract observations for specified time, longitude and latitude bounds:
         data = _apply_spatial_bounds(data, lon_bounds=self._lon_bounds, lat_bounds=self._lat_bounds)
@@ -295,8 +294,8 @@ class NSIDCLoader(DataLoader):
 
     def _load_data(self) -> xr.DataArray:
         """
-        Load NSIDC variable climatology from observations
-        stored in the JASMIN Object Store.
+        Load NSIDC sea ice observations data & optionally
+        compute climatology using the JASMIN Object Store.
 
         Returns
         -------
@@ -328,5 +327,93 @@ class NSIDCLoader(DataLoader):
 
         # Add spatial bounds to attributes:
         data.attrs["lon_bounds"], data.attrs["lat_bounds"] = _get_spatial_bounds(lon=source["lon"], lat=source["lat"])
+
+        return data
+
+
+# -- HadISST DataLoader -- #
+class HadISSTLoader(DataLoader):
+    """
+    DataLoader to load HadISST sea surface temperature
+    & sea ice concentration observations stored in the
+    JASMIN Object Store.
+
+    Parameters
+    ----------
+    var_name : str, default: ``sst``
+        Name of variable to load from HadISST ocean observations.
+        Options include ``sst``, ``siconc``.
+    time_bounds : slice, str, default: None
+        Time bounds to compute climatology using HadISST ocean observations.
+        Default is ``None``, meaning the entire dataset is considered.
+    lon_bounds : tuple, default: None
+        Longitude bounds to extract from HadISST ocean observations.
+        Default is ``None``, meaning the entire longitude range is loaded.
+    lat_bounds : tuple, default: None
+        Latitude bounds to extract from HadISST ocean observations.
+        Default is ``None``, meaning the entire latitude range is loaded.
+    freq : str, default: ``None``
+        Climatology frequency of the HadISST ocean observations.
+        Options include ``None``, ``total``, ``seasonal``, ``monthly``,
+        ``jan``, ``feb`` etc. for individual months. Default is``None``
+        meaning no climatology is computed from monthly data.
+    """
+    def __init__(self,
+                 var_name: str = 'sst',
+                 region: str | None = None,
+                 time_bounds: slice | str | None = None,
+                 lon_bounds: tuple | None = None,
+                 lat_bounds: tuple | None = None,
+                 freq: str | None = None,
+                 ):
+        # -- Verify Inputs -- #
+        if var_name not in ['sst', 'siconc']:
+            raise ValueError("``var_name`` must be one of 'sst', 'siconc'.")
+
+        # -- Initialise DataLoader -- #
+        super().__init__(var_name=var_name,
+                         region=region,
+                         source='jasmin-os',
+                         time_bounds=time_bounds,
+                         lon_bounds=lon_bounds,
+                         lat_bounds=lat_bounds,
+                         freq=freq)
+
+    def _load_data(self) -> xr.DataArray:
+        """
+        Load HadISST ocean observations data & optionally
+        compute climatology using the JASMIN Object Store.
+
+        Returns
+        -------
+        xarray.DataArray
+            Dataset storing HadISST sea surface temperature
+            climatology at specified frequency.
+        """
+        # Load data from the JASMIN Object Store:
+        url = f"{self._source}/HadISST/HadISST_global_monthly_1870_2024/"
+
+        # Data to inherit source attributes:
+        source = xr.open_zarr(url, consolidated=True)
+        data = source[self._var_name]
+        data.attrs = source.attrs
+
+        # Extract observations for specified time, longitude and latitude bounds:
+        data = _apply_spatial_bounds(data, lon_bounds=self._lon_bounds, lat_bounds=self._lat_bounds)
+
+        if isinstance(self._time_bounds, str):
+            if self._time_bounds == '1991-2020':
+                self._time_bounds = slice(time_bounds.split('-')[0], time_bounds.split('-')[1])
+            else:
+                raise ValueError("``_time_bounds`` must be specified as a either a slice or string. Available pre-defined climatologies include: '1991-2020'.")
+        if isinstance(self._time_bounds, slice):
+            data = _apply_time_bounds(data, time_bounds=self._time_bounds)
+
+        # Compute climatology:
+        if self._freq is not None:
+            data = _compute_climatology(data, freq=self._freq)
+
+        # Add spatial bounds to attributes:
+        data.attrs["lon_bounds"], data.attrs["lat_bounds"] = _get_spatial_bounds(lon=data["lon"], lat=data["lat"])
 
         return data
