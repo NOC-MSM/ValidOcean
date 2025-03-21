@@ -70,7 +70,7 @@ markdown_extensions:
   - pymdownx.blocks.caption
 
 nav:
-  - Getting Started: index.md
+  - Home: index.md
   - User Guide: user_guide.md
   - Observations: observations.md
   - Customisation: customisation.md
@@ -92,8 +92,10 @@ plugins:
 extra:
   social:
     - icon: fontawesome/brands/github 
-      link: https://github.com/NOC-MSM/NOC_Near_Present_Day
+      link: https://github.com/NOC-MSM/ValidOcean
       name: GitHub
+
+copyright: Copyright &copy; 2025 Ollie Tooth
 
 extra_javascript:
   - javascripts/mathjax.js
