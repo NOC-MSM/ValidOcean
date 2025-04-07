@@ -13,7 +13,7 @@ import xarray as xr
 
 # -- Download Kogur Hydrographic Section Data -- #
 # Define output filepath:
-out_fpath = "/dssgfs01/scratch/otooth/npd_data/observations/OVIDE/data/nsv_ovide_section_climatology_2016.nc"
+out_fpath = "/dssgfs01/scratch/otooth/npd_data/observations/OVIDE/nsv_ovide_section_climatology_2016.nc"
 
 # Download standardised Kogur hydrographic section data:
 ds = nsv.Standardizer().ovide

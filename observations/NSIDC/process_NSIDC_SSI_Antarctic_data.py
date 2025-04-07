@@ -30,18 +30,18 @@ print('In Progress: Post-Processing NSIDC Sea Ice Index Antarctic Observations..
 
 # -- Load NSIDC Ancillary Data -- #
 # Define filepath to ancillary data:
-anc_fpath = "/dssgfs01/scratch/otooth/npd_data/observations/NSIDC/data/ancillary/NSIDC0771_LatLon_PS_S25km_v1.0.nc"
+anc_fpath = "/dssgfs01/scratch/otooth/npd_data/observations/NSIDC/ancillary/NSIDC0771_LatLon_PS_S25km_v1.0.nc"
 # Open NSIDC ancillary data as dataset:
 ds_si = xr.open_dataset(anc_fpath)
 
 # Define filepath to NSIDC ancillary file - grid cell area:
-area_fpath = "/dssgfs01/scratch/otooth/npd_data/observations/NSIDC/data/ancillary/NSIDC0771_CellArea_PS_S25km_v1.0.nc"
+area_fpath = "/dssgfs01/scratch/otooth/npd_data/observations/NSIDC/ancillary/NSIDC0771_CellArea_PS_S25km_v1.0.nc"
 # Open NSIDC grid cell area:
 ds_area = xr.open_dataset(area_fpath)
 
 # -- Load NSIDC Monthly Data -- #
 # Define directory path:
-dir_path = "/dssgfs01/scratch/otooth/npd_data/observations/NSIDC/data/antarctic/"
+dir_path = "/dssgfs01/scratch/otooth/npd_data/observations/NSIDC/antarctic/"
 
 # Get the list of files in the directory:
 file_paths = glob(f"{dir_path}*.tif")
@@ -88,7 +88,7 @@ for var in ds_si.data_vars:
         ds_si[var].encoding['missing_value'] = np.nan
 
 # Define output filepath:
-out_fpath = "/dssgfs01/scratch/otooth/npd_data/observations/NSIDC/data/NSIDC_Sea_Ice_Index_v3_Antarctic_combined_1978_2025.nc"
+out_fpath = "/dssgfs01/scratch/otooth/npd_data/observations/NSIDC/NSIDC_Sea_Ice_Index_v3_Antarctic_combined_1978_2025.nc"
 # Save dataset to netCDF file:
 ds_si.to_netcdf(out_fpath, unlimited_dims='time')
 
