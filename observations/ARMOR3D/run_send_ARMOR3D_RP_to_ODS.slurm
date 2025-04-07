@@ -26,7 +26,7 @@ filepaths=$filedir/armor-3d_rep_monthly_NA_*.nc
 store_credentials_json=/dssgfs01/working/otooth/AtlantiS/jasmin_os/credentials/jasmin_os_credentials.json
 
 # Filepath to Dask Configuration file:
-dask_config_json=/dssgfs01/working/otooth/Diagnostics/ValidOcean/ocean_data_store/dask_config.json
+dask_config_json=/dssgfs01/working/otooth/Diagnostics/ValidOcean/observations/dask_config.json
 
 # Bucket and object prefix:
 bucket=ocean-obs
