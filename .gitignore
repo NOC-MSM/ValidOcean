@@ -9,6 +9,10 @@ __pycache__/
 # NetCDF files
 *.nc
 
+# SLURM job files
+*.out
+*.err
+
 # Distribution / packaging
 .Python
 build/
