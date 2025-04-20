@@ -33,6 +33,10 @@ ds = xr.open_dataset(ini_fpath, decode_times=False)
 # Transform time axis to datetime64:
 ds['time'] = xr.DataArray((np.datetime64('2010-01', 'M') + (np.timedelta64(1, 'M') * np.arange(ds['time'].size))).astype('datetime64[ns]'), dims='time')
 
+# Update variable names:
+ds = ds.rename({'icec': 'siconc'})
+ds = ds.drop_vars(['valid_yr_count'])
+
 # -- Define metadata for transfer to ODS -- #
 # Define bucket name:
 bucket = "ocean-obs"

@@ -30,6 +30,9 @@ logging.basicConfig(
 ini_fpath = "http://psl.noaa.gov/thredds/dodsC/Datasets/noaa.oisst.v2.highres/icec.mon.mean.nc"
 ds = xr.open_dataset(ini_fpath, decode_times=True)
 
+# Update variable names:
+ds = ds.rename({'icec': 'siconc'})
+
 # -- Define metadata for transfer to ODS -- #
 # Define bucket name:
 bucket = "ocean-obs"
