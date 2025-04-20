@@ -42,7 +42,7 @@ prefix=NSIDC/NSIDC_Sea_Ice_Index_v3_Arctic
 echo "In Progress: Sending NSIDC Arctic monthly dataset to JASMIN object store..."
 msm_os send -f $filepath -c $store_credentials_json -b $bucket -p $prefix \
             -cs '{"x":304, "y":448, "time":60}' -v $variables \
-            -at '{"description":"National Snow & Ice Data Centre (NSIDC) Sea Ice Index version 3: Arctic sea ice extent, concentration and total sea ice area (computed) data.","date_downloaded":"21/02/2025","date_uploaded_to_ods":"03/04/2025","temporal_range":"1978-01-01 to 2025-04-01","geographic_extent":"[-180, 180, 30, 90]","doi":"https://doi.org/10.7265/N5K072F8"}' \
+            -at '{"description":"National Snow & Ice Data Centre (NSIDC) Sea Ice Index version 3: Arctic sea ice concentration and total extent (computed) data.","date_downloaded":"21/02/2025","date_uploaded_to_ods":"20/04/2025","temporal_range":"1978-01-01 to 2025-04-01","geographic_extent":"[-180, 180, 30, 90]","doi":"https://doi.org/10.7265/N5K072F8"}' \
             -zv 3 || { echo "Error: msm_os send failed."; exit 1; }
 
 echo "Completed: Sent NSIDC Arctic monthly dataset to JASMIN object store."
@@ -54,7 +54,7 @@ prefix=NSIDC/NSIDC_Sea_Ice_Index_v3_Antarctic
 echo "In Progress: Sending NSIDC Antarctic monthly dataset to JASMIN object store..."
 msm_os send -f $filepath -c $store_credentials_json -b $bucket -p $prefix \
             -cs '{"x":316, "y":332, "time":60}' -v $variables \
-            -at '{"description":"National Snow & Ice Data Centre (NSIDC) Sea Ice Index version 3: Antarctic sea ice extent, concentration and total sea ice area (computed) data.","date_downloaded":"21/02/2025","date_uploaded_to_ods":"03/04/2025","temporal_range":"1978-01-01 to 2025-04-01","geographic_extent":"[-180, 180, -30, -90]","doi":"https://doi.org/10.7265/N5K072F8"}' \
+            -at '{"description":"National Snow & Ice Data Centre (NSIDC) Sea Ice Index version 3: Antarctic sea ice concentration and total extent (computed) data.","date_downloaded":"21/02/2025","date_uploaded_to_ods":"20/04/2025","temporal_range":"1978-01-01 to 2025-04-01","geographic_extent":"[-180, 180, -30, -90]","doi":"https://doi.org/10.7265/N5K072F8"}' \
             -zv 3 || { echo "Error: msm_os send failed."; exit 1; }
 
 echo "Completed: Sent NSIDC Antarctic monthly dataset to JASMIN object store."

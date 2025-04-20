@@ -47,20 +47,20 @@ dir_path = "/dssgfs01/scratch/otooth/npd_data/observations/NSIDC/arctic/"
 file_paths = glob(f"{dir_path}*.tif")
 file_paths.sort()
 
-# Retrieve sea ice extent & concentration files:
-extent_files = [f for f in file_paths if "extent" in f]
+# Retrieve sea ice mask & concentration files:
+mask_files = [f for f in file_paths if "extent" in f]
 conc_files = [f for f in file_paths if "concentration" in f]
 
-# -- Post-Process Sea Ice Extent Data -- #
+# -- Post-Process Sea Ice Mask Data -- #
 # Define the time dimension:
-time_siext = xr.DataArray(data=get_datetimes_from_filenames(file_list=extent_files), dims='time', name='time')
-# Load and concatenate all sea ice extent GeoTIFFs:
-siext = xr.concat([rioxarray.open_rasterio(i) for i in extent_files], dim=time_siext)
+time_simask = xr.DataArray(data=get_datetimes_from_filenames(file_list=mask_files), dims='time', name='time')
+# Load and concatenate all sea ice mask GeoTIFFs:
+simask = xr.concat([rioxarray.open_rasterio(i) for i in mask_files], dim=time_simask)
 
-# Sea Ice Extent is defined by [1: sea ice, 0: ocean]:
+# Sea Ice Mask is defined by [1: sea ice, 0: ocean]:
 # Values greater than 1 (missing or land) are set to NaN:
-ds_si['siext'] = xr.where(siext > 1, np.nan, siext).squeeze()
-ds_si["siext"].attrs = {"units": "None", "long_name": "Sea Ice Extent Mask (1: sea ice, 0: ocean)", "standard_name": "sea ice extent"}
+ds_si['simask'] = xr.where(simask > 1, np.nan, simask).squeeze()
+ds_si["simask"].attrs = {"long_name": "sea ice mask [1: sea ice, 0: ocean]", "standard_name": "sea_ice_mask", "valid_range": [0, 1], "valid_min": 0, "valid_max": 1}
 
 # -- Post-Process Sea Ice Concentration Data -- #
 # Define the time dimension:
@@ -68,24 +68,31 @@ time_siconc = xr.DataArray(data=get_datetimes_from_filenames(file_list=conc_file
 # Load and concatenate all sea ice extent GeoTIFFs:
 siconc = xr.concat([rioxarray.open_rasterio(i) for i in conc_files], dim=time_siconc)
 
-# Sea Ice Concentration is defined by 0% - 100%:
-# Note concentration is scaled by 10.
-# Values greater than 100% (missing or land) are set to NaN:
-ds_si['siconc'] = xr.where(siconc > 1000, np.nan, siconc).squeeze() / 10
-ds_si["siconc"].attrs = {"units": "%", "long_name": "Sea Ice Concentration (0: ocean, 1-15%: statistically insignificant, > 15%: sea ice)", "standard_name": "sea ice concentration"}
+# Sea Ice Concentration:
+# Note concentration percentage is scaled by 10 -> requires division by 1000.
+# Values greater than 1 (missing or land) are set to NaN:
+ds_si['siconc'] = xr.where(siconc > 1000, np.nan, siconc).squeeze() / 1000
+ds_si['siconc'].attrs = {'units': '1', 'long_name': 'sea ice area fraction [0: ocean, 0.01-0.15: statistically insignificant, > 0.15: sea ice]', 'standard_name': 'sea_ice_area_fraction', 'valid_range': [0, 1], 'valid_min': 0, 'valid_max': 1}
 
 # -- Calculate sea ice area (m2) -- #
-ds_si['areacello'] = ds_area['cell_area']
-ds_si['areacello'].attrs = {'units': 'm2', 'long_name': 'Grid Cell Area', "standard_name": "cell area"}
+ds_si['cell_area'] = ds_area['cell_area']
+ds_si['cell_area'].attrs = {'units': 'm2', 'long_name': 'area of grid cell', "standard_name": "cell_area"}
 
-ds_si['siarea'] = (ds_si['areacello']*ds_si['siext']).sum(dim=['x', 'y'])
-ds_si['siarea'].attrs = {'units': 'm2', 'long_name': 'Total Sea Ice Area (where sea ice concentration > 15%).', 'standard_name': 'sea ice area'}
+ds_si['siarea'] = (ds_si['cell_area']*ds_si['simask']).sum(dim=['x', 'y'])
+ds_si['siarea'].attrs = {'units': 'm2', 'long_name': 'total area where sea ice concentration > 15%', 'standard_name': 'sea_ice_extent'}
+
+# -- Update Coordinates -- #
+ds_si.coords['lon'] = ds_si['longitude']
+ds_si.coords['lat'] = ds_si['latitude']
+# Drop auxiliary variables:
+ds_si = ds_si.drop_vars(["band", "spatial_ref", "crs", "longitude", "latitude"])
 
 # -- Save NSIDC Sea Ice Index Dataset -- #
 # Update variable encodings:
-for var in ds_si.data_vars:
+for var in ds_si.variables:
     if ds_si[var].dtype == 'float64':
         ds_si[var].encoding['missing_value'] = np.nan
+        ds_si[var].encoding['_FillValue'] = np.nan
 
 # Define output filepath:
 out_fpath = "/dssgfs01/scratch/otooth/npd_data/observations/NSIDC/NSIDC_Sea_Ice_Index_v3_Arctic_combined_1978_2025.nc"
