@@ -9,7 +9,6 @@ Author: Ollie Tooth (oliver.tooth@noc.ac.uk)
 """
 
 # -- Import required packages -- #
-import numpy as np
 import xarray as xr
 
 # -- Define Aggregation Utility Functions -- #
