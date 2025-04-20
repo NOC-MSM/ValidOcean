@@ -1,0 +1,14 @@
+channels:
+  - conda-forge
+
+dependencies:
+  - aiohttp
+  - cartopy
+  - cmocean
+  - dask[complete]
+  - flox
+  - gsw
+  - matplotlib
+  - requests
+  - xarray[io,accel]
+  - xesmf
