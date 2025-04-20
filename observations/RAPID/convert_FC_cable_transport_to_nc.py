@@ -13,12 +13,11 @@ import xarray as xr
 import pandas as pd
 
 # Define column names:
-col_names = ['year', 'month', 'day', 'florida_current_transport']
-dtype = {'year': int, 'month': int, 'day': int, 'florida_current_transport': float}
+col_names = ['year', 'month', 'day', 'florida_current_transport', 'flag']
 
 # Read .dat file as a DataFrame:
-file = "/dssgfs01/scratch/otooth/npd_data/observations/RAPID/data/fc_transport.dat"
-df = pd.read_fwf(file, header=None, names=col_names, dtype=dtype, infer_nrows=500)
+file = "/dssgfs01/scratch/otooth/npd_data/observations/RAPID/fc_transport.csv"
+df = pd.read_csv(file, header=None, names=col_names)
 
 # Transform time columns to datetime column:
 df['time'] = pd.to_datetime(dict(year=df.year, month=df.month, day=df.day))
@@ -29,5 +28,5 @@ df = df.set_index('time')
 ds = xr.Dataset.from_dataframe(df)
 
 # Save dataset to netcdf file:
-outfilename = "/dssgfs01/scratch/otooth/npd_data/observations/RAPID/data/FC_cable_transport_1982-2024.nc"
+outfilename = "/dssgfs01/scratch/otooth/npd_data/observations/RAPID/2000-2024.nc"
 ds.to_netcdf(outfilename)

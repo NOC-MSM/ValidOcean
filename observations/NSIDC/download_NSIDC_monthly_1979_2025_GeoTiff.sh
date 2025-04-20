@@ -16,7 +16,7 @@ echo " Oliver J. Tooth, National Oceanography Centre, 2025"
 echo "Downloading: NSIDC Sea Ice Extent & Concentration GeoTiffs..."
 
 # Define hemisphere:
-hemisphere="south"
+hemisphere="north"
 # Define the URL prefix:
 url_prefix="https://noaadata.apps.nsidc.org/NOAA/G02135/"$hemisphere"/monthly/geotiff"
 

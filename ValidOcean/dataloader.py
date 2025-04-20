@@ -10,7 +10,6 @@ Author: Ollie Tooth (oliver.tooth@noc.ac.uk)
 
 # -- Import required packages -- #
 import abc
-import numpy as np
 import xarray as xr
 
 from ValidOcean.processing import _get_spatial_bounds, _apply_spatial_bounds, _apply_time_bounds, _compute_climatology, _transform_longitudes
@@ -111,7 +110,7 @@ class DataLoader(abc.ABC):
         self._region = region
 
         if source == 'jasmin-os':
-            self._source = "https://noc-msm-o.s3-ext.jc.rl.ac.uk/npd-obs"
+            self._source = "https://noc-msm-o.s3-ext.jc.rl.ac.uk/ocean-obs"
         else:
             self._source = source
 
@@ -176,6 +175,20 @@ class OISSTv2Loader(DataLoader):
         # -- Verify Inputs -- #
         if var_name not in ['sst', 'siconc']:
             raise ValueError("``var_name`` must be one of 'sst', 'siconc'.")
+        if region is not None:
+            if not isinstance(region, str):
+                raise TypeError("``region`` must be specfied as a string.")
+
+        # -- Define Region -- #
+        if region is not None:
+            if region == 'arctic':
+                lon_bounds = (-180, 180)
+                lat_bounds = (60, 90)
+            elif region == 'antarctic':
+                lon_bounds = (-180, 180)
+                lat_bounds = (-90, -60)
+            else:
+                raise ValueError("``region`` must be one of 'arctic', 'antarctic'.")
 
         # -- Initialise DataLoader -- #
         super().__init__(var_name=var_name,
@@ -200,22 +213,22 @@ class OISSTv2Loader(DataLoader):
         # Load data from the JASMIN Object Store:
         if self._var_name == 'sst':
             if self._time_bounds == '1991-2020':
-                url = f"{self._source}/OISSTv2/OISSTv2_sst_global_monthly_climatology_1991_2020/"
+                url = f"{self._source}/OISSTv2/OISSTv2_sst_global_climatology_1991_2020/"
             elif isinstance(self._time_bounds, slice):
-                url = f"{self._source}/OISSTv2/OISSTv2_sst_global_monthly_1981_2025/"
+                url = f"{self._source}/OISSTv2/OISSTv2_sst_global_monthly/"
             else:
                 raise ValueError("``_time_bounds`` must be specified as a either a slice or string. Available pre-defined climatologies include: '1991-2020'.")
 
         elif self._var_name == 'siconc':
             if self._time_bounds == '1991-2020':
-                url = f"{self._source}/OISSTv2/OISSTv2_siconc_global_monthly_climatology_1991_2020/"
+                url = f"{self._source}/OISSTv2/OISSTv2_siconc_global_climatology_1991_2020/"
             elif isinstance(self._time_bounds, slice):
-                url = f"{self._source}/OISSTv2/OISSTv2_siconc_global_monthly_1981_2025/"
+                url = f"{self._source}/OISSTv2/OISSTv2_siconc_global_monthly/"
             else:
                 raise ValueError("``_time_bounds`` must be specified as a either a slice or string. Available pre-defined climatologies include: '1991-2020'.")
 
         # Data to inherit source attributes:
-        source = xr.open_zarr(url, consolidated=True)
+        source = xr.open_zarr(url, zarr_format=3, consolidated=True)
         data = source[self._var_name]
         data = _transform_longitudes(data)
         data.attrs = source.attrs
@@ -276,8 +289,8 @@ class NSIDCLoader(DataLoader):
         # -- Verify Inputs -- #
         if not isinstance(var_name, str):
             raise TypeError("``var_name`` must be specfied as a string.")
-        if var_name not in ['siconc', 'siext', 'siarea']:
-            raise ValueError("``var_name`` must be one of 'siconc', 'siext', 'siarea'.")
+        if var_name not in ['siconc', 'simask', 'siarea']:
+            raise ValueError("``var_name`` must be one of 'siconc', 'simask', 'siarea'.")
         if not isinstance(region, str):
             raise TypeError("``region`` must be specfied as a string.")
         if region not in ['arctic', 'antarctic']:
@@ -305,12 +318,12 @@ class NSIDCLoader(DataLoader):
         """
         # Load data from the JASMIN Object Store:
         if self._region == "arctic":
-            url = f"{self._source}/NSIDC/NSIDC_Sea_Ice_Index_v3_Arctic_1978_2025/"
+            url = f"{self._source}/NSIDC/NSIDC_Sea_Ice_Index_v3_Arctic/"
         elif self._region == "antarctic":
-            url = f"{self._source}/NSIDC/NSIDC_Sea_Ice_Index_v3_Antarctic_1978_2025/"
+            url = f"{self._source}/NSIDC/NSIDC_Sea_Ice_Index_v3_Antarctic/"
 
         # Data to inherit source attributes:
-        source = xr.open_zarr(url, consolidated=True)
+        source = xr.open_zarr(url, zarr_format=3, consolidated=True)
         data = source[self._var_name]
         data.attrs = source.attrs
 
@@ -326,7 +339,10 @@ class NSIDCLoader(DataLoader):
             data = _compute_climatology(data, freq=self._freq)
 
         # Add spatial bounds to attributes:
-        data.attrs["lon_bounds"], data.attrs["lat_bounds"] = _get_spatial_bounds(lon=source["lon"], lat=source["lat"])
+        if ('x' in data.dims) & ('y' in data.dims):
+            data.attrs["lon_bounds"], data.attrs["lat_bounds"] = _get_spatial_bounds(lon=data["lon"], lat=data["lat"])
+        else:
+            data.attrs["lon_bounds"], data.attrs["lat_bounds"] = _get_spatial_bounds(lon=source["lon"], lat=source["lat"])
 
         return data
 
@@ -369,6 +385,20 @@ class HadISSTLoader(DataLoader):
         # -- Verify Inputs -- #
         if var_name not in ['sst', 'siconc']:
             raise ValueError("``var_name`` must be one of 'sst', 'siconc'.")
+        if region is not None:
+            if not isinstance(region, str):
+                raise TypeError("``region`` must be specfied as a string.")
+
+        # -- Define Region -- #
+        if region is not None:
+            if region == 'arctic':
+                lon_bounds = (-180, 180)
+                lat_bounds = (60, 90)
+            elif region == 'antarctic':
+                lon_bounds = (-180, 180)
+                lat_bounds = (-90, -60)
+            else:
+                raise ValueError("``region`` must be one of 'arctic', 'antarctic'.")
 
         # -- Initialise DataLoader -- #
         super().__init__(var_name=var_name,
@@ -391,10 +421,10 @@ class HadISSTLoader(DataLoader):
             climatology at specified frequency.
         """
         # Load data from the JASMIN Object Store:
-        url = f"{self._source}/HadISST/HadISST_global_monthly_1870_2024/"
+        url = f"{self._source}/HadISST/HadISST_global_monthly/"
 
         # Data to inherit source attributes:
-        source = xr.open_zarr(url, consolidated=True)
+        source = xr.open_zarr(url, zarr_format=3, consolidated=True)
         data = source[self._var_name]
         data.attrs = source.attrs
 
@@ -403,7 +433,7 @@ class HadISSTLoader(DataLoader):
 
         if isinstance(self._time_bounds, str):
             if self._time_bounds == '1991-2020':
-                self._time_bounds = slice(time_bounds.split('-')[0], time_bounds.split('-')[1])
+                self._time_bounds = slice(self._time_bounds.split('-')[0], self._time_bounds.split('-')[1])
             else:
                 raise ValueError("``_time_bounds`` must be specified as a either a slice or string. Available pre-defined climatologies include: '1991-2020'.")
         if isinstance(self._time_bounds, slice):

@@ -156,16 +156,16 @@ def _plot_2D_error(mv,
         if source_plots:
             _, axs = plt.subplots(nrows=3, ncols=1, figsize=figsize, subplot_kw={"projection": projection})
 
-            _plot_var_2d(axs[0], mv._results['lon'], mv._results['lat'], mv._results[var_name], plt_kwargs=source_kwargs, cbar_label=f"Model")
+            _plot_var_2d(axs[0], mv._results['lon'], mv._results['lat'], mv._results[var_name], plt_kwargs=source_kwargs, cbar_label="Model")
 
-            _plot_var_2d(axs[1], mv._obs[f"lon_{obs_name.lower()}"], mv._obs[f"lat_{obs_name.lower()}"], mv._obs[f"{var_name}_{obs_name.lower()}"], plt_kwargs=source_kwargs, cbar_label=f"Observations")
+            _plot_var_2d(axs[1], mv._obs[f"lon_{obs_name.lower()}"], mv._obs[f"lat_{obs_name.lower()}"], mv._obs[f"{var_name}_{obs_name.lower()}"], plt_kwargs=source_kwargs, cbar_label="Observations")
 
-            _plot_var_2d(axs[2], mv._results['lon'], mv._results['lat'], mv._results[f"{var_name}_error"].squeeze(), plt_kwargs=error_kwargs, cbar_label=f"(Model - Obs.) Error")
+            _plot_var_2d(axs[2], mv._results['lon'], mv._results['lat'], mv._results[f"{var_name}_error"].squeeze(), plt_kwargs=error_kwargs, cbar_label="(Model - Obs.) Error")
 
         else:
             _, axs = plt.subplots(nrows=1, ncols=1, figsize=figsize, subplot_kw={"projection": projection})
 
-            _plot_var_2d(axs, mv._results['lon'], mv._results['lat'], mv._results[f"{var_name}_error"].squeeze(), plt_kwargs=error_kwargs, cbar_label=f"(Model - Obs.) Error")
+            _plot_var_2d(axs, mv._results['lon'], mv._results['lat'], mv._results[f"{var_name}_error"].squeeze(), plt_kwargs=error_kwargs, cbar_label="(Model - Obs.) Error")
 
     return axs
 

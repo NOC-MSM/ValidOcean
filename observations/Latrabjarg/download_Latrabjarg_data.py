@@ -13,7 +13,7 @@ import xarray as xr
 
 # -- Download Kogur Hydrographic Section Data -- #
 # Define output filepath:
-out_fpath = "/dssgfs01/scratch/otooth/npd_data/observations/Latrabjarg/data/nsv_latrabjarg_section_climatology_1990_2012.nc"
+out_fpath = "/dssgfs01/scratch/otooth/npd_data/observations/Latrabjarg/nsv_latrabjarg_section_climatology_1990_2012.nc"
 
 # Download standardised Kogur hydrographic section data:
 ds = nsv.Standardizer().latrabjarg_climatology
