@@ -40,11 +40,11 @@ def _get_spatial_bounds(lon: xr.DataArray, lat: xr.DataArray) -> tuple[tuple]:
         raise TypeError("``lat`` must be an xarray DataArray.")
     
     # -- Compute Spatial Bounds -- #
-    lon_bounds = (np.floor(lon.min().values), np.ceil(lon.max().values))
+    lon_bounds = (np.floor(lon.min()).item(), np.ceil(lon.max()).item())
     if (lon_bounds[0] < -180) or (lon_bounds[1] > 180):
         raise ValueError("``lon`` must be in the range [-180, 180].")
 
-    lat_bounds = (np.floor(lat.min().values), np.ceil(lat.max().values))
+    lat_bounds = (np.floor(lat.min()).item(), np.ceil(lat.max()).item())
     if (lat_bounds[0] < -90) or (lat_bounds[1] > 90):
         raise ValueError("``lat`` must be in the range [-90, 90].")
     
