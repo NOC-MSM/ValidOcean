@@ -1,26 +1,30 @@
-[build-system]
-build-backend = "setuptools.build_meta"
-requires = [
-  "setuptools>=42",
-  "setuptools-scm>=7",
-]
-
-[tool.setuptools]
-packages = ["ValidOcean"]
-
 [project]
 name = "ValidOcean"
 description = "Leveraging the cloud to accelerate ocean model validation."
-requires-python = ">=3.10"
 keywords = ["validation", "oceanography", "modelling", "analysis", "cloud"]
-authors = [{email = "oliver.tooth@noc.ac.uk"},{name = "Ollie Tooth"}]
+readme = "README.md"
+dynamic = ["version"]
+authors = [{name = "Ollie Tooth", email = "oliver.tooth@noc.ac.uk"},]
 maintainers = [{name = "Ollie Tooth", email = "oliver.tooth@noc.ac.uk"}]
+license = { text = "GPL-3.0-or-later" }
+
 classifiers = [
-  "Programming Language :: Python :: 3",
-  "Intended Audience :: Science/Research"
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
+
+requires-python = ">=3.10"
 dependencies = [
   "aiohttp>=3.11.12",
+  "cmocean",
   "dask[complete]>=2024.10.0",
   "flox>=0.9.12",
   "gsw>=3.6.19",
@@ -30,14 +34,71 @@ dependencies = [
   "xarray[io,accel]>=2024.10.0",
   "xesmf>=0.8.8",
   "numpy>=1.26.4",
-  "zarr>=2.18.3",
+  "zarr>=3.0.2",
   ]
 
-dynamic = ["version"]
+# Dependency sets under optional-dependencies [PyPi]:
+[project.optional-dependencies]
+complete = ["ValidOcean[docs,obs,parallel]"]
+docs = [
+    "mkdocs",
+    "mkdocs-get-deps",
+    "mkdocs-glightbox",
+    "mkdocs-jupyter",
+    "mkdocs-material",
+]
+obs = [
+    "fsspec",
+    "requests",
+    "aiohttp",
+    "s3fs",
+]
+parallel = ["dask[complete]"]
 
-[project.readme]
-file = "README.md"
-content-type = "text/md"
+[dependency-groups]
+dev = [
+  "hypothesis",
+  "mypy>=1.15.0",
+  "pytest",
+  "pytest-cov",
+  "pytest-env",
+  "pytest-mypy-plugins",
+  "pytest-timeout",
+  "pytest-xdist",
+  "ruff>=0.11.5",
+  "mkdocs",
+  "mkdocs-get-deps",
+  "mkdocs-glightbox",
+  "mkdocs-jupyter",
+  "mkdocs-material",
+  "ValidOcean[complete]",
+]
 
 [project.urls]
-repository = "https://github.com/NOC-MSM/ValidOcean"
+Home = "https://github.com/NOC-MSM/ValidOcean"
+Documentation = "https://noc-msm.github.io/ValidOcean/"
+
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=42", "setuptools-scm>=7"]
+
+[tool.setuptools]
+packages = ["ValidOcean"]
+
+[tool.mypy]
+enable_error_code = ["ignore-without-code", "redundant-self", "redundant-expr"]
+exclude = []
+files = "ValidOcean"
+show_error_context = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+ignore_missing_imports = true
+module = [
+  "cartopy.*",
+  "cmocean.*",
+  "xarray.*",
+  "xesmf.*",
+]
