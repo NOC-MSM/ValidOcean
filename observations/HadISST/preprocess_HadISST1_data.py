@@ -121,9 +121,11 @@ ds_sst = xr.open_dataset(files[1])
 # Fill missing values with NaNs:
 ds_sst['sst'] = xr.where(cond=ds_sst['sst'] == -1000, x=np.nan, y=ds_sst['sst'])
 
-# Concatenate SST and sea ice Datasets:
+# Concatenate sea surface temperature and sea ice Datasets:
 ds = xr.merge([ds_sst, ds_ice])
-ds = ds.rename_vars({'sic': 'siconc'})
+
+# Update variable names:
+ds = ds.rename({'sic': 'siconc', 'longitude': 'lon', 'latitude': 'lat'})
 
 # Add grid cell area to Dataset:
 ds = add_grid_area(ds=ds, resolution=1)
