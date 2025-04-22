@@ -13,7 +13,7 @@ import numpy as np
 import xarray as xr
 
 # -- Utility Functions -- #
-def _get_spatial_bounds(lon: xr.DataArray, lat: xr.DataArray, depth: xr.DataArray | None) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float] | None]:
+def _get_spatial_bounds(lon: xr.DataArray, lat: xr.DataArray, depth: xr.DataArray | None = None) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float] | None]:
     """
     Get the spatial bounds of a given model or observational
     domain rounded to nearest largest integer.
@@ -32,8 +32,8 @@ def _get_spatial_bounds(lon: xr.DataArray, lat: xr.DataArray, depth: xr.DataArra
 
     Returns
     -------
-    tuple[tuple]
-        Tuples of floats containing the spatial bounds of the domain
+    tuple[tuple[float, float], tuple[float, float], tuple[float, float] | None]
+        Tuple of tuples containing the spatial bounds (float) of the domain
         in the form ((lon_min, lon_max), (lat_min, lat_max), (depth_min, depth_max)).
     """
     # -- Verify Inputs -- #
@@ -215,7 +215,7 @@ def _apply_geographic_bounds(data : xr.DataArray,
         else:
             data_type = 'model'
 
-        warning_message = f"[longitude: {lon_bounds[0]}, {lon_bounds[1]}; latitude: {lat_bounds[0]}, {lat_bounds[1]}] bounds are outside the range of available {data_type} data [longitude: {data.lon.min().item()}, {lon.max().item()}; latitude: {lat.min().item()}, {lat.max().item()}]."
+        warning_message = f"[longitude: {lon_bounds[0]}, {lon_bounds[1]}; latitude: {lat_bounds[0]}, {lat_bounds[1]}] bounds are outside the range of available {data_type} data [longitude: {data.lon.min().item()}, {lon.max().item()}; latitude: {lat.min().item()}, {lat.max().item()}]. Using nearest available longitudes and latitudes."
         warnings.warn(warning_message, RuntimeWarning)
     
     # -- Subset Data -- #
@@ -278,12 +278,17 @@ def _apply_depth_bounds(data : xr.DataArray,
         else:
             data_type = 'model'
 
-        warning_message = f"[depth: {depth_bounds[0]}, {depth_bounds[1]}] bounds are outside the range of available {data_type} data [depth: {data.depth.min().item()}, {depth.max().item()}]."
+        warning_message = f"[depth: {depth_bounds[0]}, {depth_bounds[1]}] bounds are outside the range of available {data_type} data [depth: {data.depth.min().item()}, {depth.max().item()}]. Using nearest available depth levels."
         warnings.warn(warning_message, RuntimeWarning)
     
     # -- Subset Data -- #
-    data = data.where((depth >= depth_bounds[0]) & (depth <= depth_bounds[1]),
-                      drop=True)
+    # Single depth level:
+    if depth_bounds[0] == depth_bounds[1]:
+        data = data.sel(depth=depth_bounds[0], method="nearest")
+    # Multiple depth levels:
+    else:
+        data = data.where((depth >= depth_bounds[0]) & (depth <= depth_bounds[1]),
+                          drop=True)
 
     return data
 
