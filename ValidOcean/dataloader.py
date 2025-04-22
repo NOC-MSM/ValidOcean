@@ -12,7 +12,7 @@ Author: Ollie Tooth (oliver.tooth@noc.ac.uk)
 import abc
 import xarray as xr
 
-from ValidOcean.processing import _get_spatial_bounds, _apply_spatial_bounds, _apply_time_bounds, _compute_climatology, _transform_longitudes
+from ValidOcean.processing import _get_spatial_bounds, _apply_geographic_bounds, _apply_time_bounds, _compute_climatology, _transform_longitudes
 
 # -- DataLoader Abstract Base Class -- #
 class DataLoader(abc.ABC):
@@ -234,7 +234,7 @@ class OISSTv2Loader(DataLoader):
         data.attrs = source.attrs
 
         # Extract observations for specified time, longitude and latitude bounds:
-        data = _apply_spatial_bounds(data, lon_bounds=self._lon_bounds, lat_bounds=self._lat_bounds)
+        data = _apply_geographic_bounds(data, lon_bounds=self._lon_bounds, lat_bounds=self._lat_bounds)
 
         if isinstance(self._time_bounds, slice):
             data = _apply_time_bounds(data, time_bounds=self._time_bounds)
@@ -244,7 +244,7 @@ class OISSTv2Loader(DataLoader):
             data = _compute_climatology(data, freq=self._freq)
 
         # Add spatial bounds to attributes:
-        data.attrs["lon_bounds"], data.attrs["lat_bounds"] = _get_spatial_bounds(lon=data["lon"], lat=data["lat"])
+        data.attrs["lon_bounds"], data.attrs["lat_bounds"], data.attrs["depth_bounds"] = _get_spatial_bounds(lon=data["lon"], lat=data["lat"])
 
         return data
 
@@ -329,7 +329,7 @@ class NSIDCLoader(DataLoader):
 
         # Extract observations for specified time, longitude and latitude bounds:
         if ('x' in data.dims) & ('y' in data.dims):
-            data = _apply_spatial_bounds(data, lon_bounds=self._lon_bounds, lat_bounds=self._lat_bounds)
+            data = _apply_geographic_bounds(data, lon_bounds=self._lon_bounds, lat_bounds=self._lat_bounds)
 
         if isinstance(self._time_bounds, slice):
             data = _apply_time_bounds(data, time_bounds=self._time_bounds)
@@ -340,9 +340,9 @@ class NSIDCLoader(DataLoader):
 
         # Add spatial bounds to attributes:
         if ('x' in data.dims) & ('y' in data.dims):
-            data.attrs["lon_bounds"], data.attrs["lat_bounds"] = _get_spatial_bounds(lon=data["lon"], lat=data["lat"])
+            data.attrs["lon_bounds"], data.attrs["lat_bounds"], data.attrs["depth_bounds"] = _get_spatial_bounds(lon=data["lon"], lat=data["lat"])
         else:
-            data.attrs["lon_bounds"], data.attrs["lat_bounds"] = _get_spatial_bounds(lon=source["lon"], lat=source["lat"])
+            data.attrs["lon_bounds"], data.attrs["lat_bounds"], data.attrs["depth_bounds"] = _get_spatial_bounds(lon=source["lon"], lat=source["lat"])
 
         return data
 
@@ -429,7 +429,7 @@ class HadISSTLoader(DataLoader):
         data.attrs = source.attrs
 
         # Extract observations for specified time, longitude and latitude bounds:
-        data = _apply_spatial_bounds(data, lon_bounds=self._lon_bounds, lat_bounds=self._lat_bounds)
+        data = _apply_geographic_bounds(data, lon_bounds=self._lon_bounds, lat_bounds=self._lat_bounds)
 
         if isinstance(self._time_bounds, str):
             if self._time_bounds == '1991-2020':
@@ -444,6 +444,6 @@ class HadISSTLoader(DataLoader):
             data = _compute_climatology(data, freq=self._freq)
 
         # Add spatial bounds to attributes:
-        data.attrs["lon_bounds"], data.attrs["lat_bounds"] = _get_spatial_bounds(lon=data["lon"], lat=data["lat"])
+        data.attrs["lon_bounds"], data.attrs["lat_bounds"], data.attrs["depth_bounds"] = _get_spatial_bounds(lon=data["lon"], lat=data["lat"])
 
         return data
