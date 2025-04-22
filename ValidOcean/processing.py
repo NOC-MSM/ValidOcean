@@ -13,7 +13,7 @@ import numpy as np
 import xarray as xr
 
 # -- Utility Functions -- #
-def _get_spatial_bounds(lon: xr.DataArray, lat: xr.DataArray) -> tuple[tuple]:
+def _get_spatial_bounds(lon: xr.DataArray, lat: xr.DataArray, depth: xr.DataArray | None) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float] | None]:
     """
     Get the spatial bounds of a given model or observational
     domain rounded to nearest largest integer.
@@ -26,18 +26,24 @@ def _get_spatial_bounds(lon: xr.DataArray, lat: xr.DataArray) -> tuple[tuple]:
     lat : xarray.DataArray
         DataArray containing the latitudes of the domain.
         Latitudes must be in the range [-90, 90].
+    depth : xarray.DataArray, optional
+        DataArray containing the depths of the domain.
+        Depths must be in the range [0, 11050] m.
 
     Returns
     -------
     tuple[tuple]
         Tuples of floats containing the spatial bounds of the domain
-        in the form (lon_min, lon_max), (lat_min, lat_max).
+        in the form ((lon_min, lon_max), (lat_min, lat_max), (depth_min, depth_max)).
     """
     # -- Verify Inputs -- #
     if not isinstance(lon, xr.DataArray):
         raise TypeError("``lon`` must be an xarray DataArray.")
     if not isinstance(lat, xr.DataArray):
         raise TypeError("``lat`` must be an xarray DataArray.")
+    if depth is not None:
+        if not isinstance(depth, xr.DataArray):
+            raise TypeError("``depth`` must be an xarray DataArray.")
     
     # -- Compute Spatial Bounds -- #
     lon_bounds = (np.floor(lon.min()).item(), np.ceil(lon.max()).item())
@@ -48,7 +54,12 @@ def _get_spatial_bounds(lon: xr.DataArray, lat: xr.DataArray) -> tuple[tuple]:
     if (lat_bounds[0] < -90) or (lat_bounds[1] > 90):
         raise ValueError("``lat`` must be in the range [-90, 90].")
     
-    return lon_bounds, lat_bounds
+    if depth is not None:
+        depth_bounds = (np.floor(depth.min()).item(), np.ceil(depth.max()).item())
+    else:
+        depth_bounds = None
+    
+    return lon_bounds, lat_bounds, depth_bounds
 
 
 def _transform_longitudes(data: xr.DataArray) -> xr.DataArray:
@@ -136,14 +147,14 @@ def _apply_time_bounds(data : xr.DataArray,
     return data
 
 
-def _apply_spatial_bounds(data : xr.DataArray,
-                          lon_bounds : tuple[float],
-                          lat_bounds : tuple[float],
-                          is_obs : bool = True,
-                          ) -> xr.DataArray:
+def _apply_geographic_bounds(data : xr.DataArray,
+                             lon_bounds : tuple[float],
+                             lat_bounds : tuple[float],
+                             is_obs : bool = True,
+                             ) -> xr.DataArray:
     """
     Subset a given xarray DataArray according to the
-    specified spatial bounds (lon, lat).
+    specified geographic bounds (lon, lat).
 
     Parameters
     ----------
@@ -162,8 +173,8 @@ def _apply_spatial_bounds(data : xr.DataArray,
     Returns
     -------
     xarray.DataArray
-        DataArray containing the variable subset to the
-        specified time bounds.
+        DataArray containing variable subset to the
+        specified geographic bounds.
     """
     # -- Verify Inputs -- #
     if not isinstance(data, xr.DataArray):
@@ -204,12 +215,74 @@ def _apply_spatial_bounds(data : xr.DataArray,
         else:
             data_type = 'model'
 
-        warning_message = f"[longitude: {lon_bounds[0]}, {lon_bounds[1]}; latitude: {lat_bounds[0]}, {lat_bounds[1]}] bounds are outside the range of available {data_type} data [longitude: {data.lon.min().values.astype(float)}, {lon.max().values.astype(float)}; latitude: {lat.min().values.astype(float)}, {lat.max().values.astype(float)}]."
+        warning_message = f"[longitude: {lon_bounds[0]}, {lon_bounds[1]}; latitude: {lat_bounds[0]}, {lat_bounds[1]}] bounds are outside the range of available {data_type} data [longitude: {data.lon.min().item()}, {lon.max().item()}; latitude: {lat.min().item()}, {lat.max().item()}]."
         warnings.warn(warning_message, RuntimeWarning)
     
     # -- Subset Data -- #
     data = data.where((lon >= lon_bounds[0]) & (lon <= lon_bounds[1]) &
                       (lat >= lat_bounds[0]) & (lat <= lat_bounds[1]),
+                      drop=True)
+
+    return data
+
+
+def _apply_depth_bounds(data : xr.DataArray,
+                        depth_bounds : tuple[float],
+                        is_obs : bool = True
+                        ) -> xr.DataArray:
+    """
+    Subset a given xarray DataArray according to the
+    specified depth bounds.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        DataArray containing the variable to subset.
+    depth_bounds : tuple[float]
+        Depth bounds to subset the data. Must be a
+        tuple with minimum and maximum values.
+    is_obs : bool, default: False
+        Flag to indicate if the data is from an ocean
+        observations dataset. Default is True.
+    
+    Returns
+    -------
+    xarray.DataArray
+        DataArray containing variable subset to the
+        specified depth bounds.
+    """
+    # -- Verify Inputs -- #
+    if not isinstance(data, xr.DataArray):
+        raise TypeError("``data`` must be an xarray DataArray.")
+    if 'depth' not in data.coords:
+        raise ValueError("``data`` must contain coordinates ``depth``.")
+    if not isinstance(depth_bounds, tuple):
+        raise TypeError("``depth_bounds`` must be a tuple.")
+    if all(list(map(isinstance, depth_bounds, [(float, int), (float, int)]))) is False:
+        raise TypeError("``depth_bounds`` tuple must contain only int or float types.")
+    if not isinstance(is_obs, bool):
+        raise TypeError("``is_obs`` flag must be a boolean.")
+
+    # -- Loading Coordinates -- #
+    if (data.depth.chunks is not None):
+        depth = data['depth'].load()
+    else:
+        depth = data['depth']
+    
+    # -- Raise Warning if Bounds Outside Domain -- #
+    if ((depth_bounds[0] < np.floor(depth.min())) or
+        (depth_bounds[1] > np.ceil(depth.max()))
+        ):
+        if is_obs:
+            data_type = 'observations'
+        else:
+            data_type = 'model'
+
+        warning_message = f"[depth: {depth_bounds[0]}, {depth_bounds[1]}] bounds are outside the range of available {data_type} data [depth: {data.depth.min().item()}, {depth.max().item()}]."
+        warnings.warn(warning_message, RuntimeWarning)
+    
+    # -- Subset Data -- #
+    data = data.where((depth >= depth_bounds[0]) & (depth <= depth_bounds[1]),
                       drop=True)
 
     return data
