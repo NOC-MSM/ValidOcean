@@ -20,7 +20,7 @@ from typing import Self
 import ValidOcean.dataloader as dataloader
 from ValidOcean.dataloader import DataLoader
 from ValidOcean.aggregator import _aggregate_to_1D
-from ValidOcean.processing import _get_spatial_bounds, _apply_spatial_bounds, _apply_time_bounds, _compute_climatology
+from ValidOcean.processing import _get_spatial_bounds, _apply_geographic_bounds, _apply_time_bounds, _compute_climatology
 from ValidOcean.statistics import _compute_agg_stats
 from ValidOcean.regridding import _regrid_data
 from ValidOcean.plotting import _plot_timeseries, _plot_2D_error
@@ -80,8 +80,12 @@ class ModelValidator():
             self._data = mdl_data
             self._lon = self._data['lon'].squeeze()
             self._lat = self._data['lat'].squeeze()
+            if 'depth' in self._data.dims:
+                self._depth = self._data['depth'].squeeze()
+            else:
+                self._depth = None
             # Get model domain bounds rounded to nearest largest integer:
-            self._lon_bounds, self._lat_bounds = _get_spatial_bounds(lon=self._lon, lat=self._lat)
+            self._lon_bounds, self._lat_bounds, self._depth_bounds = _get_spatial_bounds(lon=self._lon, lat=self._lat, depth=self._depth)
         else:
             self._data = xr.Dataset()
 
@@ -381,10 +385,10 @@ class ModelValidator():
 
         # -- Process Ocean Model Data -- #
         if obs['region'] is not None:
-            mdl_data = _apply_spatial_bounds(data=self._data[var_name], 
-                                             lon_bounds=obs_data.attrs['lon_bounds'],
-                                             lat_bounds=obs_data.attrs['lat_bounds'],
-                                             is_obs=False)
+            mdl_data = _apply_geographic_bounds(data=self._data[var_name], 
+                                                lon_bounds=obs_data.attrs['lon_bounds'],
+                                                lat_bounds=obs_data.attrs['lat_bounds'],
+                                                is_obs=False)
         else:
             mdl_data = self._data[var_name]
 
@@ -503,12 +507,12 @@ class ModelValidator():
 
         # -- Process Ocean Model Data -- #
         if obs['region'] is not None:
-            mdl_data = _apply_spatial_bounds(data=self._data[var_name], 
+            mdl_data = _apply_geographic_bounds(data=self._data[var_name], 
                                              lon_bounds=obs_data.attrs['lon_bounds'],
                                              lat_bounds=obs_data.attrs['lat_bounds'],
                                              is_obs=False)
             if mask is not None:
-                mask = _apply_spatial_bounds(data=mask, 
+                mask = _apply_geographic_bounds(data=mask, 
                                              lon_bounds=obs_data.attrs['lon_bounds'],
                                              lat_bounds=obs_data.attrs['lat_bounds'],
                                              is_obs=False)
