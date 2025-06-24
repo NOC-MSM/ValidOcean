@@ -714,7 +714,7 @@ class ModelValidator():
         freq : str, default: ``total``
             Climatology frequency to compute sea surface salinity error. 
             Options include ``total``, ``seasonal``, ``monthly``, ``jan``,
-            ``feb``, `mar`` etc. for individual months.
+            ``feb``, ``mar`` etc. for individual months.
         regrid_to : str, default: ``model``
             Regrid data to either ``model`` or observations (``obs``) target grid.
         method : str, default: ``bilinear``
