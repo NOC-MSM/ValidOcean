@@ -273,8 +273,8 @@ def _apply_depth_bounds(data : xr.DataArray,
         depth = data['depth']
     
     # -- Raise Warning if Bounds Outside Domain -- #
-    if ((depth_bounds[0] < np.floor(depth.min())) or
-        (depth_bounds[1] > np.ceil(depth.max()))
+    if ((depth_bounds[0] < np.floor(depth.min().item())) or
+        (depth_bounds[1] > np.ceil(depth.max().item()))
         ):
         if is_obs:
             data_type = 'observations'
