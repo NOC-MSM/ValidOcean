@@ -827,6 +827,147 @@ class ModelValidator():
         return ax
 
 
+    def compute_mld_error(self,
+                          mld_name : str = 'mld',
+                          obs_name : str = 'ARMOR3D',
+                          time_bounds : slice | str | None = None,
+                          freq : str = 'total',
+                          regrid_to : str = 'model',
+                          method : str = 'bilinear',
+                          stats : bool = False,
+                          ) -> Self:
+        """
+        Compute mixed layer depth error between ocean model and observations (model - observation).
+
+        Parameters
+        ----------
+        mld_name : str, default: ``mld``
+            Name of sea surface salinity variable in ocean model dataset.
+        obs_name : str, default: ``ARMOR3D``
+            Name of observational dataset.
+            Options include ``ARMOR3D`` and ``LOPSMLD``.
+        time_bounds : slice, str, default: ``None``
+            Time bounds to compute mixed layer depth climatology.
+            Default is ``None`` meaning the entire time series is used.
+            Custom bounds should be specified using a slice object. Available
+            pre-defined climatologies can be selected using a string
+            (e.g., "1991-2020").
+        freq : str, default: ``total``
+            Climatology frequency to compute mixed layer depth error. 
+            Options include ``total``, ``seasonal``, ``monthly``, ``jan``,
+            ``feb``, `mar`` etc. for individual months.
+        regrid_to : str, default: ``model``
+            Regrid data to either ``model`` or observations (``obs``) target grid.
+        method : str, default: ``bilinear``
+            Method used to interpolate model and observed data onto target grid.
+            Options include ``bilinear``, ``nearest``, ``conservative``.
+        stats : bool, default: ``False``
+            Return aggregated statistics of (model - observation) error.
+            Includes Mean Absolute Error, Mean Square Error & Root Mean Square Error.
+
+        Returns
+        -------
+        ModelValidator
+            ModelValidator object including (ocean model - observation) mixed layer depth
+            error, stored in the ``results`` attribute and aggregate statistics stored in the
+            ``stats`` attribute.
+        """
+        # -- Compute MLD Error -- #
+        self._compute_2D_error(var_name=mld_name,
+                               obs=dict(name=obs_name, region=None, var='mld'),
+                               time_bounds=time_bounds,
+                               freq=freq,
+                               regrid_to=regrid_to,
+                               method=method,
+                               stats=stats,
+                               )
+
+        return self
+
+
+    def plot_mld_error(self,
+                       mld_name : str = 'mld',
+                       obs_name : str = 'ARMOR3D',
+                       time_bounds : slice | str | None = None,
+                       freq : str = 'total',
+                       regrid_to : str = 'model',
+                       method : str = 'bilinear',
+                       stats : bool = False,
+                       figsize : tuple = (15, 8),
+                       error_kwargs : dict = dict(cmap=cmo.balance, vmin=-250, vmax=250),
+                       source_plots : bool = True,
+                       source_kwargs : dict = dict(cmap=cmo.haline, vmin=0, vmax=500),
+                       ) -> None:
+        """
+        Plot mixed layer depth error between ocean model and observations (model - observation).
+
+        Parameters
+        ----------
+        mld_name : str, default: ``mld``
+            Name of sea surface salinity variable in model dataset.
+        obs_name : str, default: ``ARMOR3D``
+            Name of observational dataset.
+            Options include ``ARMOR3D`` and ``LOPSMLD``.
+        time_bounds : slice, str, default: ``None``
+            Time bounds to compute mixed layer depth climatology. Default is ``None``
+            meaning the entire time series is used. Custom bounds should be specified using
+            a slice object. Available pre-defined climatologies can be selected using a
+            string (e.g., "1991-2020").
+        freq : str, default: ``total``
+            Climatology frequency to compute mixed layer depth error.
+            Options include ``total``, ``seasonal``, ``monthly``, ``jan``,
+            ``feb``, `mar`` etc. for individual months.
+        regrid_to : str, default: ``model``
+            Regrid data to either ``model`` or observations (``obs``) target grid.
+        method : str, default: ``bilinear``
+            Method used to interpolate model and observed data onto target grid.
+            Options include ``bilinear``, ``nearest``, ``conservative``.
+        stats : bool, default: ``False``
+            Return aggregated statistics of (model - observation) error.
+            Includes Mean Absolute Error, Mean Square Error & Root Mean Square Error.
+        figsize : tuple, default: (15, 8)
+            Figure size for the plot.
+        error_kwargs : dict, default: ``{'cmap':'RdBu_r', 'vmin':-250, 'vmax':250}``
+            Keyword arguments for matplotlib pcolormesh. Only applied to (model - observation)
+            error.
+        source_plots : bool, default: ``True``
+            Plot model, observations and (model - observation) error as separate subplots.
+            This option is only available where climatology frequency ``freq``='total' or
+            ``freq`` is a individual month (e.g., ``jan``).
+        source_kwargs : dict, default: ``{'cmap':'cmo.thermal', 'vmin':0, 'vmax':1200}``
+            Keyword arguments for model and observation matplotlib pcolormeshes.
+
+        Returns
+        -------
+        matplotlib Axes
+            Matplotlib axes object displaying (model - observation) mixed layer depth error.
+        """
+        # -- Compute MLD Error -- #
+        self._compute_2D_error(var_name=mld_name,
+                               obs=dict(name=obs_name, region=None, var='mld'),
+                               time_bounds=time_bounds,
+                               freq=freq,
+                               regrid_to=regrid_to,
+                               method=method,
+                               stats=stats,
+                               )
+
+        # -- Plot MLD Error -- #
+        # Use global projection:
+        projection = ccrs.Robinson(central_longitude=-1)
+
+        ax = _plot_2D_error(mv=self,
+                            obs_name=obs_name,
+                            var_name=mld_name,
+                            projection=projection,
+                            figsize=figsize,
+                            error_kwargs=error_kwargs,
+                            source_plots=source_plots,
+                            source_kwargs=source_kwargs,
+                            )
+        return ax
+
+
     def compute_siconc_error(self,
                              sic_name : str = 'siconc',
                              obs_name : str = 'NSIDC',
