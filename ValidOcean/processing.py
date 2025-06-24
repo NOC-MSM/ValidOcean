@@ -49,16 +49,16 @@ def _get_spatial_bounds(lon: xr.DataArray,
             raise TypeError("``depth`` must be an xarray DataArray.")
     
     # -- Compute Spatial Bounds -- #
-    lon_bounds = (np.floor(lon.min()).item(), np.ceil(lon.max()).item())
+    lon_bounds = (np.floor(lon.min().item()), np.ceil(lon.max().item()))
     if (lon_bounds[0] < -180) or (lon_bounds[1] > 180):
         raise ValueError("``lon`` must be in the range [-180, 180].")
 
-    lat_bounds = (np.floor(lat.min()).item(), np.ceil(lat.max()).item())
+    lat_bounds = (np.floor(lat.min().item()), np.ceil(lat.max().item()))
     if (lat_bounds[0] < -90) or (lat_bounds[1] > 90):
         raise ValueError("``lat`` must be in the range [-90, 90].")
     
     if depth is not None:
-        depth_bounds = (np.floor(depth.min()).item(), np.ceil(depth.max()).item())
+        depth_bounds = (np.floor(depth.min().item()), np.ceil(depth.max().item()))
     else:
         depth_bounds = None
     
@@ -135,7 +135,7 @@ def _apply_time_bounds(data : xr.DataArray,
         raise TypeError("``is_obs`` flag must be a boolean.")
     
     #  -- Raise Warning if Bounds Outside Time Series -- #
-    if (np.datetime64(time_bounds.start) < data.time.min()) | (np.datetime64(time_bounds.stop) > data.time.max()):
+    if (np.datetime64(time_bounds.start) < data.time.min().item()) | (np.datetime64(time_bounds.stop) > data.time.max().item()):
         if is_obs:
             data_type = 'observations'
         else:
@@ -208,10 +208,10 @@ def _apply_geographic_bounds(data : xr.DataArray,
         lat = data['lat']
     
     # -- Raise Warning if Bounds Outside Domain -- #
-    if ((lon_bounds[0] < np.floor(lon.min())) or
-        (lon_bounds[1] > np.ceil(lon.max())) or
-        (lat_bounds[0] < np.floor(lat.min())) or
-        (lat_bounds[1] > np.ceil(lat.max()))
+    if ((lon_bounds[0] < np.floor(lon.min().item())) or
+        (lon_bounds[1] > np.ceil(lon.max().item())) or
+        (lat_bounds[0] < np.floor(lat.min().item())) or
+        (lat_bounds[1] > np.ceil(lat.max().item()))
         ):
         if is_obs:
             data_type = 'observations'
