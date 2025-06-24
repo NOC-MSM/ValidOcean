@@ -20,7 +20,7 @@ from typing import Self
 import ValidOcean.dataloader as dataloader
 from ValidOcean.dataloader import DataLoader
 from ValidOcean.aggregator import _aggregate_to_1D
-from ValidOcean.processing import _get_spatial_bounds, _apply_spatial_bounds, _apply_time_bounds, _compute_climatology
+from ValidOcean.processing import _get_spatial_bounds, _apply_geographic_bounds, _apply_time_bounds, _compute_climatology
 from ValidOcean.statistics import _compute_agg_stats
 from ValidOcean.regridding import _regrid_data
 from ValidOcean.plotting import _plot_timeseries, _plot_2D_error
@@ -80,8 +80,12 @@ class ModelValidator():
             self._data = mdl_data
             self._lon = self._data['lon'].squeeze()
             self._lat = self._data['lat'].squeeze()
+            if 'depth' in self._data.dims:
+                self._depth = self._data['depth'].squeeze()
+            else:
+                self._depth = None
             # Get model domain bounds rounded to nearest largest integer:
-            self._lon_bounds, self._lat_bounds = _get_spatial_bounds(lon=self._lon, lat=self._lat)
+            self._lon_bounds, self._lat_bounds, self._depth_bounds = _get_spatial_bounds(lon=self._lon, lat=self._lat, depth=self._depth)
         else:
             self._data = xr.Dataset()
 
@@ -381,10 +385,10 @@ class ModelValidator():
 
         # -- Process Ocean Model Data -- #
         if obs['region'] is not None:
-            mdl_data = _apply_spatial_bounds(data=self._data[var_name], 
-                                             lon_bounds=obs_data.attrs['lon_bounds'],
-                                             lat_bounds=obs_data.attrs['lat_bounds'],
-                                             is_obs=False)
+            mdl_data = _apply_geographic_bounds(data=self._data[var_name], 
+                                                lon_bounds=obs_data.attrs['lon_bounds'],
+                                                lat_bounds=obs_data.attrs['lat_bounds'],
+                                                is_obs=False)
         else:
             mdl_data = self._data[var_name]
 
@@ -503,12 +507,12 @@ class ModelValidator():
 
         # -- Process Ocean Model Data -- #
         if obs['region'] is not None:
-            mdl_data = _apply_spatial_bounds(data=self._data[var_name], 
+            mdl_data = _apply_geographic_bounds(data=self._data[var_name], 
                                              lon_bounds=obs_data.attrs['lon_bounds'],
                                              lat_bounds=obs_data.attrs['lat_bounds'],
                                              is_obs=False)
             if mask is not None:
-                mask = _apply_spatial_bounds(data=mask, 
+                mask = _apply_geographic_bounds(data=mask, 
                                              lon_bounds=obs_data.attrs['lon_bounds'],
                                              lat_bounds=obs_data.attrs['lat_bounds'],
                                              is_obs=False)
@@ -559,10 +563,10 @@ class ModelValidator():
             Name of sea surface temperature variable in ocean model dataset.
         obs_name : str, default: ``OISSTv2``
             Name of observational dataset.
-            Options include ``OISSTv2``, ``CCI`` and ``HadISST``.
+            Options include ``ARMOR3D``, ``HadISST``, ``OISSTv2`` and ``WOA23``.
         time_bounds : slice, str, default: ``None``
             Time bounds to compute sea surface temperature climatologies.
-            Default is ``None`` meaning the entire time series is loaded.
+            Default is ``None`` meaning the entire time series is used.
             Custom bounds should be specified using a slice object. Available
             pre-defined climatologies can be selected using a string
             (e.g., "1991-2020").
@@ -621,10 +625,10 @@ class ModelValidator():
             Name of sea surface temperature variable in model dataset.
         obs_name : str, default: ``OISSTv2``
             Name of observational dataset.
-            Options include ``OISSTv2``, ``CCI`` and ``HadISST``.
+            Options include ``ARMOR3D``, ``HadISST``, ``OISSTv2`` and ``WOA23``.
         time_bounds : slice, str, default: ``None``
             Time bounds to compute sea surface temperature climatologies. Default is ``None``
-            meaning the entire time series is loaded. Custom bounds should be specified using
+            meaning the entire time series is used. Custom bounds should be specified using
             a slice object. Available pre-defined climatologies can be selected using a
             string (e.g., "1991-2020").
         freq : str, default: ``total``
@@ -682,6 +686,288 @@ class ModelValidator():
         return ax
 
 
+    def compute_sss_error(self,
+                          sss_name : str = 'sos_abs',
+                          obs_name : str = 'ARMOR3D',
+                          time_bounds : slice | str | None = None,
+                          freq : str = 'total',
+                          regrid_to : str = 'model',
+                          method : str = 'bilinear',
+                          stats : bool = False,
+                          ) -> Self:
+        """
+        Compute sea surface salinity error between ocean model and observations (model - observation).
+
+        Parameters
+        ----------
+        sss_name : str, default: ``sos_abs``
+            Name of sea surface salinity variable in ocean model dataset.
+        obs_name : str, default: ``ARMOR3D``
+            Name of observational dataset.
+            Options include ``ARMOR3D``, ``EN4.2.2`` and ``WOA23``.
+        time_bounds : slice, str, default: ``None``
+            Time bounds to compute sea surface salinity climatologies.
+            Default is ``None`` meaning the entire time series is used.
+            Custom bounds should be specified using a slice object. Available
+            pre-defined climatologies can be selected using a string
+            (e.g., "1991-2020").
+        freq : str, default: ``total``
+            Climatology frequency to compute sea surface salinity error. 
+            Options include ``total``, ``seasonal``, ``monthly``, ``jan``,
+            ``feb``, ``mar`` etc. for individual months.
+        regrid_to : str, default: ``model``
+            Regrid data to either ``model`` or observations (``obs``) target grid.
+        method : str, default: ``bilinear``
+            Method used to interpolate model and observed data onto target grid.
+            Options include ``bilinear``, ``nearest``, ``conservative``.
+        stats : bool, default: ``False``
+            Return aggregated statistics of (model - observation) error.
+            Includes Mean Absolute Error, Mean Square Error & Root Mean Square Error.
+
+        Returns
+        -------
+        ModelValidator
+            ModelValidator object including (ocean model - observation) sea surface salinity
+            error, stored in the ``results`` attribute and aggregate statistics stored in the
+            ``stats`` attribute.
+        """
+        # -- Compute SSS Error -- #
+        self._compute_2D_error(var_name=sss_name,
+                               obs=dict(name=obs_name, region=None, var='sss'),
+                               time_bounds=time_bounds,
+                               freq=freq,
+                               regrid_to=regrid_to,
+                               method=method,
+                               stats=stats,
+                               )
+
+        return self
+
+
+    def plot_sss_error(self,
+                       sss_name : str = 'sos_abs',
+                       obs_name : str = 'ARMOR3D',
+                       time_bounds : slice | str | None = None,
+                       freq : str = 'total',
+                       regrid_to : str = 'model',
+                       method : str = 'bilinear',
+                       stats : bool = False,
+                       figsize : tuple = (15, 8),
+                       error_kwargs : dict = dict(cmap=cmo.balance, vmin=-2.5, vmax=2.5),
+                       source_plots : bool = True,
+                       source_kwargs : dict = dict(cmap=cmo.haline, vmin=33, vmax=38),
+                       ) -> None:
+        """
+        Plot sea surface salinity error between ocean model and observations (model - observation).
+
+        Parameters
+        ----------
+        sss_name : str, default: ``sos_abs``
+            Name of sea surface salinity variable in model dataset.
+        obs_name : str, default: ``ARMOR3D``
+            Name of observational dataset.
+            Options include ``ARMOR3D``, ``EN4.2.2`` and ``WOA23``.
+        time_bounds : slice, str, default: ``None``
+            Time bounds to compute sea surface salinity climatologies. Default is ``None``
+            meaning the entire time series is used. Custom bounds should be specified using
+            a slice object. Available pre-defined climatologies can be selected using a
+            string (e.g., "1991-2020").
+        freq : str, default: ``total``
+            Climatology frequency to compute sea surface temperature error.
+            Options include ``total``, ``seasonal``, ``monthly``, ``jan``,
+            ``feb``, `mar`` etc. for individual months.
+        regrid_to : str, default: ``model``
+            Regrid data to either ``model`` or observations (``obs``) target grid.
+        method : str, default: ``bilinear``
+            Method used to interpolate model and observed data onto target grid.
+            Options include ``bilinear``, ``nearest``, ``conservative``.
+        stats : bool, default: ``False``
+            Return aggregated statistics of (model - observation) error.
+            Includes Mean Absolute Error, Mean Square Error & Root Mean Square Error.
+        figsize : tuple, default: (15, 8)
+            Figure size for the plot.
+        error_kwargs : dict, default: ``{'cmap':'RdBu_r', 'vmin':-1, 'vmax':1}``
+            Keyword arguments for matplotlib pcolormesh. Only applied to (model - observation)
+            error.
+        source_plots : bool, default: ``True``
+            Plot model, observations and (model - observation) error as separate subplots.
+            This option is only available where climatology frequency ``freq``='total' or
+            ``freq`` is a individual month (e.g., ``jan``).
+        source_kwargs : dict, default: ``{'cmap':'cmo.thermal', 'vmin':10, 'vmax':36}``
+            Keyword arguments for model and observation matplotlib pcolormeshes.
+
+        Returns
+        -------
+        matplotlib Axes
+            Matplotlib axes object displaying (model - observation) sea surface temperature error.
+        """
+        # -- Compute SSS Error -- #
+        self._compute_2D_error(var_name=sss_name,
+                               obs=dict(name=obs_name, region=None, var='sss'),
+                               time_bounds=time_bounds,
+                               freq=freq,
+                               regrid_to=regrid_to,
+                               method=method,
+                               stats=stats,
+                               )
+
+        # -- Plot SSS Error -- #
+        # Use global projection:
+        projection = ccrs.Robinson(central_longitude=-1)
+
+        ax = _plot_2D_error(mv=self,
+                            obs_name=obs_name,
+                            var_name=sss_name,
+                            projection=projection,
+                            figsize=figsize,
+                            error_kwargs=error_kwargs,
+                            source_plots=source_plots,
+                            source_kwargs=source_kwargs,
+                            )
+        return ax
+
+
+    def compute_mld_error(self,
+                          mld_name : str = 'mld',
+                          obs_name : str = 'ARMOR3D',
+                          time_bounds : slice | str | None = None,
+                          freq : str = 'total',
+                          regrid_to : str = 'model',
+                          method : str = 'bilinear',
+                          stats : bool = False,
+                          ) -> Self:
+        """
+        Compute mixed layer depth error between ocean model and observations (model - observation).
+
+        Parameters
+        ----------
+        mld_name : str, default: ``mld``
+            Name of sea surface salinity variable in ocean model dataset.
+        obs_name : str, default: ``ARMOR3D``
+            Name of observational dataset.
+            Options include ``ARMOR3D`` and ``LOPSMLD``.
+        time_bounds : slice, str, default: ``None``
+            Time bounds to compute mixed layer depth climatology.
+            Default is ``None`` meaning the entire time series is used.
+            Custom bounds should be specified using a slice object. Available
+            pre-defined climatologies can be selected using a string
+            (e.g., "1991-2020").
+        freq : str, default: ``total``
+            Climatology frequency to compute mixed layer depth error. 
+            Options include ``total``, ``seasonal``, ``monthly``, ``jan``,
+            ``feb``, `mar`` etc. for individual months.
+        regrid_to : str, default: ``model``
+            Regrid data to either ``model`` or observations (``obs``) target grid.
+        method : str, default: ``bilinear``
+            Method used to interpolate model and observed data onto target grid.
+            Options include ``bilinear``, ``nearest``, ``conservative``.
+        stats : bool, default: ``False``
+            Return aggregated statistics of (model - observation) error.
+            Includes Mean Absolute Error, Mean Square Error & Root Mean Square Error.
+
+        Returns
+        -------
+        ModelValidator
+            ModelValidator object including (ocean model - observation) mixed layer depth
+            error, stored in the ``results`` attribute and aggregate statistics stored in the
+            ``stats`` attribute.
+        """
+        # -- Compute MLD Error -- #
+        self._compute_2D_error(var_name=mld_name,
+                               obs=dict(name=obs_name, region=None, var='mld'),
+                               time_bounds=time_bounds,
+                               freq=freq,
+                               regrid_to=regrid_to,
+                               method=method,
+                               stats=stats,
+                               )
+
+        return self
+
+
+    def plot_mld_error(self,
+                       mld_name : str = 'mld',
+                       obs_name : str = 'ARMOR3D',
+                       time_bounds : slice | str | None = None,
+                       freq : str = 'total',
+                       regrid_to : str = 'model',
+                       method : str = 'bilinear',
+                       stats : bool = False,
+                       figsize : tuple = (15, 8),
+                       error_kwargs : dict = dict(cmap=cmo.balance, vmin=-250, vmax=250),
+                       source_plots : bool = True,
+                       source_kwargs : dict = dict(cmap=cmo.haline, vmin=0, vmax=500),
+                       ) -> None:
+        """
+        Plot mixed layer depth error between ocean model and observations (model - observation).
+
+        Parameters
+        ----------
+        mld_name : str, default: ``mld``
+            Name of sea surface salinity variable in model dataset.
+        obs_name : str, default: ``ARMOR3D``
+            Name of observational dataset.
+            Options include ``ARMOR3D`` and ``LOPSMLD``.
+        time_bounds : slice, str, default: ``None``
+            Time bounds to compute mixed layer depth climatology. Default is ``None``
+            meaning the entire time series is used. Custom bounds should be specified using
+            a slice object. Available pre-defined climatologies can be selected using a
+            string (e.g., "1991-2020").
+        freq : str, default: ``total``
+            Climatology frequency to compute mixed layer depth error.
+            Options include ``total``, ``seasonal``, ``monthly``, ``jan``,
+            ``feb``, `mar`` etc. for individual months.
+        regrid_to : str, default: ``model``
+            Regrid data to either ``model`` or observations (``obs``) target grid.
+        method : str, default: ``bilinear``
+            Method used to interpolate model and observed data onto target grid.
+            Options include ``bilinear``, ``nearest``, ``conservative``.
+        stats : bool, default: ``False``
+            Return aggregated statistics of (model - observation) error.
+            Includes Mean Absolute Error, Mean Square Error & Root Mean Square Error.
+        figsize : tuple, default: (15, 8)
+            Figure size for the plot.
+        error_kwargs : dict, default: ``{'cmap':'RdBu_r', 'vmin':-250, 'vmax':250}``
+            Keyword arguments for matplotlib pcolormesh. Only applied to (model - observation)
+            error.
+        source_plots : bool, default: ``True``
+            Plot model, observations and (model - observation) error as separate subplots.
+            This option is only available where climatology frequency ``freq``='total' or
+            ``freq`` is a individual month (e.g., ``jan``).
+        source_kwargs : dict, default: ``{'cmap':'cmo.thermal', 'vmin':0, 'vmax':1200}``
+            Keyword arguments for model and observation matplotlib pcolormeshes.
+
+        Returns
+        -------
+        matplotlib Axes
+            Matplotlib axes object displaying (model - observation) mixed layer depth error.
+        """
+        # -- Compute MLD Error -- #
+        self._compute_2D_error(var_name=mld_name,
+                               obs=dict(name=obs_name, region=None, var='mld'),
+                               time_bounds=time_bounds,
+                               freq=freq,
+                               regrid_to=regrid_to,
+                               method=method,
+                               stats=stats,
+                               )
+
+        # -- Plot MLD Error -- #
+        # Use global projection:
+        projection = ccrs.Robinson(central_longitude=-1)
+
+        ax = _plot_2D_error(mv=self,
+                            obs_name=obs_name,
+                            var_name=mld_name,
+                            projection=projection,
+                            figsize=figsize,
+                            error_kwargs=error_kwargs,
+                            source_plots=source_plots,
+                            source_kwargs=source_kwargs,
+                            )
+        return ax
+
+
     def compute_siconc_error(self,
                              sic_name : str = 'siconc',
                              obs_name : str = 'NSIDC',
@@ -707,7 +993,7 @@ class ModelValidator():
             concentration error. Options are ``arctic`` or ``antarctic``.
         time_bounds : slice, str, default: ``None``
             Time bounds to compute sea ice concentration climatologies.
-            Default is ``None`` meaning the entire time series is loaded.
+            Default is ``None`` meaning the entire time series is used.
             Custom bounds should be specified using a slice object. Available
             pre-defined climatologies can be selected using a string
             (e.g., "1991-2020").
@@ -773,7 +1059,7 @@ class ModelValidator():
             concentration error. Options are ``arctic`` or ``antarctic``.
         time_bounds : slice, str, default: ``None``
             Time bounds to compute sea ice concentration climatologies. Default is ``None``
-            meaning the entire time series is loaded. Custom bounds should be specified using
+            meaning the entire time series is used. Custom bounds should be specified using
             a slice object. Available pre-defined climatologies can be selected using a
             string (e.g., "1991-2020").
         freq : str, default: ``mar``
@@ -929,7 +1215,7 @@ class ModelValidator():
             concentration error. Options are ``arctic`` or ``antarctic``.
         time_bounds : slice, str, default: ``None``
             Time bounds to compute sea ice area.
-            Default is ``None`` meaning the entire time series is returned.
+            Default is ``None`` meaning the entire time series is plotted.
             Custom bounds should be specified using a slice object.
         figsize : tuple, default: (12, 5)
             Figure size for the plot.
@@ -995,7 +1281,7 @@ class ModelValidator():
             Name of variable to load from observational dataset.
         region : str, default: ``None``
             Region of ocean observations dataset to load. Default is ``None``
-            meaning the entire dataset is loaded.
+            meaning the entire dataset is returned.
         time_bounds : slice, str, default: None
             Time bounds to extract ocean observations.
             Default is ``None`` meaning the entire time series is loaded.
