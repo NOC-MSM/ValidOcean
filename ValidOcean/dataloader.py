@@ -48,7 +48,7 @@ class DataLoader(abc.ABC):
         Default is ``None`` meaning the entire latitude range is loaded.
     depth_bounds : tuple, default: None
         Depth bounds to extract from ocean observations.
-        Default is ``None`` meaning the entire depth range is loaded when
+        Default is ``None`` meaning the entire depth range is loaded where
         a depth axis is available.
     freq : str, default: ``None``
         Climatology frequency of the ocean observations dataset.
@@ -133,7 +133,7 @@ class DataLoader(abc.ABC):
         else:
             self._lat_bounds = lat_bounds
         if depth_bounds is None:
-            self._depth_bounds = (0, 11000)
+            self._depth_bounds = None
         else:
             self._depth_bounds = depth_bounds
 
@@ -559,7 +559,8 @@ class WOA23Loader(DataLoader):
 
         # Extract observations for specified longitude, latitude & depth bounds:
         data = _apply_geographic_bounds(data, lon_bounds=self._lon_bounds, lat_bounds=self._lat_bounds)
-        data = _apply_depth_bounds(data, depth_bounds=self._depth_bounds).squeeze()
+        if self._depth_bounds is not None:
+            data = _apply_depth_bounds(data, depth_bounds=self._depth_bounds).squeeze()
 
         # Inherit CF global attributes:
         global_attrs = {key: source.attrs[key] for key in ['Conventions', 'title', 'institution', 'source', 'history', 'references', 'comment'] if key in source.attrs}
@@ -653,10 +654,11 @@ class ARMOR3DLoader(DataLoader):
         source = xr.open_zarr(url, zarr_format=3, consolidated=True)
         source = source.rename({"longitude": "lon", "latitude": "lat"})
         data = source[var_names[self._var_name]]
+        data.name = self._var_name
 
         # Extract observations for specified longitude, latitude & depth bounds:
         data = _apply_geographic_bounds(data, lon_bounds=self._lon_bounds, lat_bounds=self._lat_bounds)
-        if 'depth' in data.dims:
+        if ('depth' in data.dims) & (self._depth_bounds is not None):
             data = _apply_depth_bounds(data, depth_bounds=self._depth_bounds).squeeze()
 
         # Extract observations for specified time bounds:
@@ -693,6 +695,8 @@ class EN4Loader(DataLoader):
     var_name : str, default: ``temp``
         Name of variable to load from EN4 ocean observations.
         Options include ``sst``, ``sss``, ``temp`` & ``sal``.
+    region : str, default: ``None``
+        Region of EN4 ocean observations dataset to load.
     time_bounds : slice, str, default: None
         Time bounds to compute climatology using EN4 ocean observations.
         Default is ``None``, meaning the entire dataset is considered.
@@ -763,6 +767,7 @@ class EN4Loader(DataLoader):
         # Load data from the JASMIN Object Store:
         source = xr.open_zarr(url, zarr_format=3, consolidated=True)
         data = source[var_names[self._var_name]]
+        data.name = self._var_name
         data = _transform_longitudes(data)
 
         # Conversion: sea water temperature [K -> degC]:
@@ -771,7 +776,8 @@ class EN4Loader(DataLoader):
 
         # Extract observations for specified longitude, latitude & depth bounds:
         data = _apply_geographic_bounds(data, lon_bounds=self._lon_bounds, lat_bounds=self._lat_bounds)
-        data = _apply_depth_bounds(data, depth_bounds=self._depth_bounds).squeeze()
+        if self._depth_bounds is not None:
+            data = _apply_depth_bounds(data, depth_bounds=self._depth_bounds).squeeze()
 
         # Extract observations for specified time bounds:
         if isinstance(self._time_bounds, str):
@@ -788,5 +794,90 @@ class EN4Loader(DataLoader):
         data = data.assign_attrs(global_attrs)
         # Append spatial bound attributes:
         data.attrs["lon_bounds"], data.attrs["lat_bounds"], data.attrs["depth_bounds"] = _get_spatial_bounds(lon=data["lon"], lat=data["lat"], depth=data["depth"])
+
+        return data
+
+
+# -- LOPS_MLD DataLoader -- #
+class LOPSMLDLoader(DataLoader):
+    """
+    DataLoader to load monthly climatology of the observed oceanic Mixed Layer
+    Depth (MLD) created by the LOPS laboratory (IFREMER) stored in the JASMIN
+    Object Store.
+
+    Parameters
+    ----------
+    var_name : str, default: ``mld``
+        Name of variable to load from LOPS-MLD ocean observations.
+    region : str, default: ``None``
+        Region of LOPS-MLD ocean observations dataset to load.
+    time_bounds : str, default: ``None``
+        Time bounds to compute climatology using LOPS-MLD ocean observations.
+    lon_bounds : tuple, default: None
+        Longitude bounds to extract from LOPS-MLD ocean observations.
+        Default is ``None``, meaning the entire longitude range is loaded.
+    lat_bounds : tuple, default: None
+        Latitude bounds to extract from LOPS-MLD ocean observations.
+        Default is ``None``, meaning the entire latitude range is loaded.
+    freq : str, default: ``None``
+        Climatology frequency of the LOPS-MLD ocean observations.
+        Options include ``None``, ``total``, ``seasonal``, ``monthly``,
+        ``jan``, ``feb`` etc. for individual months. Default is``None``
+        meaning the original monthly climatology is returned.
+    """
+    def __init__(self,
+                 var_name: str = 'mld',
+                 region: str | None = None,
+                 time_bounds: str | None = None,
+                 lon_bounds: tuple | None = None,
+                 lat_bounds: tuple | None = None,
+                 freq: str = 'total',
+                 ):
+
+        # -- Initialise DataLoader -- #
+        super().__init__(var_name=var_name,
+                         region=region,
+                         source='jasmin-os',
+                         time_bounds=time_bounds,
+                         lon_bounds=lon_bounds,
+                         lat_bounds=lat_bounds,
+                         freq=freq)
+
+    def _load_data(self) -> xr.DataArray:
+        """
+        Load LOPS-MLD ocean observations data from
+        the JASMIN Object Store.
+
+        Returns
+        -------
+        xarray.DataArray
+            Dataset storing LOPS-MLD ocean mixed layer depth climatology.
+        """
+        # Define LOPS-MLD S3 url:
+        url = f"{self._source}/LOPS-MLD/LOPS-MLD_v2023_global_monthly_climatology/"
+
+        # Define LOPS-MLD variable names:
+        var_names = {"mld": "mld_dr003"}
+
+        # Load data from the JASMIN Object Store:
+        source = xr.open_zarr(url, zarr_format=3, consolidated=True) 
+        data = source[var_names[self._var_name]]
+        data.name = self._var_name
+
+        # Update time coordinates to CF-compliant datetimes:
+        data['time'] = xr.date_range(start='1995-01-01', end='1995-12-01', freq='MS')
+
+        # Extract observations for specified longitude & latitude bounds:
+        data = _apply_geographic_bounds(data, lon_bounds=self._lon_bounds, lat_bounds=self._lat_bounds)
+
+        # Select climatology:
+        if self._freq is not None:
+            data = _compute_climatology(data, freq=self._freq)
+
+        # Inherit CF global attributes:
+        global_attrs = {key: source.attrs[key] for key in ['Conventions', 'title', 'institution', 'source', 'history', 'references', 'comment'] if key in source.attrs}
+        data = data.assign_attrs(global_attrs)
+        # Append spatial bound attributes:
+        data.attrs["lon_bounds"], data.attrs["lat_bounds"], data.attrs["depth_bounds"] = _get_spatial_bounds(lon=data["lon"], lat=data["lat"])
 
         return data

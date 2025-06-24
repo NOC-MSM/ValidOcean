@@ -13,7 +13,10 @@ import numpy as np
 import xarray as xr
 
 # -- Utility Functions -- #
-def _get_spatial_bounds(lon: xr.DataArray, lat: xr.DataArray, depth: xr.DataArray | None = None) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float] | None]:
+def _get_spatial_bounds(lon: xr.DataArray,
+                        lat: xr.DataArray,
+                        depth: xr.DataArray | None = None
+                        ) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float] | None]:
     """
     Get the spatial bounds of a given model or observational
     domain rounded to nearest largest integer.
